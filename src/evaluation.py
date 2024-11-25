@@ -11,7 +11,11 @@ def calculate_sens_spec(model, data_loader):
     for data in data_loader:  # Iterate in batches over the test dataset.
         out = model(data.x, data.edge_index, data.edge_attr, data.batch)
         
-        pred = out.argmax(dim=1)  # Use the class with highest probability.
+        if model.lin.out_features == 1:
+            pred = (out > 0.5).float()  # Convert output to binary predictions using a threshold of 0.5
+        else:
+            pred = out.argmax(dim=1)  # Use the class with highest probability.
+            
         # pred = out[:, 1]
         # print(pred)
         
@@ -47,8 +51,10 @@ def calculate_roc(model, data_loader):
     for data in data_loader:  # Iterate in batches over the test dataset.
         out = model(data.x, data.edge_index, data.edge_attr, data.batch)
         
-        # pred = out.argmax(dim=1)  # Use the class with highest probability.
-        pred = out[:, 1]
+        if model.lin.out_features == 1:
+            pred = out.squeeze() 
+        else:
+            pred = out[:, 1]
         # print(pred)
         
         y_preds = torch.cat((y_preds, pred), 0)

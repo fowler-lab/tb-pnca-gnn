@@ -18,6 +18,7 @@ def pnca_simpleGCN(
     learning_rate,
     wd,
     epochs,
+    output_channels = 2,
     normalise_ews: bool = True,
     wandb_params = {'use_wandb': False, 'wandb_project': None, 'wandb_name': None}
     ):
@@ -101,7 +102,8 @@ def pnca_simpleGCN(
     # Set up GCN model
     model = gcn_model.GCN(
         input_channels= num_node_features,
-        hidden_channels= hidden_channels
+        hidden_channels= hidden_channels,
+        output_channels= output_channels
         )
     
     model.train_loader = train_loader
@@ -109,20 +111,33 @@ def pnca_simpleGCN(
     model.dataset_dict= dataset_dict
 
     # Define optimizer and loss function
+    
+    # optimizer = torch.optim.Adam(
+    #     model.parameters(), 
+    #     lr=learning_rate, 
+    #     weight_decay=wd
+    #     )
+    
     #* Try AdamW optimizer
-    optimizer = torch.optim.Adam(
+    optimizer = torch.optim.AdamW(
         model.parameters(), 
         lr=learning_rate, 
         weight_decay=wd
         )
-    criterion = torch.nn.CrossEntropyLoss()
+    
+    if output_channels == 1:
+        criterion = torch.nn.BCEWithLogitsLoss()
+    else:
+        criterion = torch.nn.CrossEntropyLoss()
     
     # Set up trainer
     gcntrainer = gcn_model.GCNTrainer(model=model,
                                 loss_func=criterion,
                                 optimizer=optimizer,
                                 train_loader=train_loader,
-                                test_loader=test_loader)
+                                test_loader=test_loader,
+                                output_dim=output_channels
+                                )
     
     if wandb_params['use_wandb']:
 

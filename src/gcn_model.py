@@ -11,14 +11,13 @@ from src.model_helpers import EarlyStopping
 
 
 class GCN(torch.nn.Module):
-    def __init__(self, input_channels, hidden_channels):
+    def __init__(self, input_channels, hidden_channels, output_channels = 2):
         super(GCN, self).__init__()
         torch.manual_seed(12345)
         self.conv1 = GraphConv(input_channels, hidden_channels)
         self.conv2 = GraphConv(hidden_channels, hidden_channels)
         self.conv3 = GraphConv(hidden_channels, hidden_channels)
-        self.lin = Linear(hidden_channels, 2)
-        # self.lin = Linear(hidden_channels, 1)  #! for output channels = 1
+        self.lin = Linear(hidden_channels, output_channels)
 
     def forward(self, x, edge_index, edge_weight, batch):
         # 1. Obtain node embeddings 
@@ -38,12 +37,13 @@ class GCN(torch.nn.Module):
         return x
 
 class GCNTrainer:
-    def __init__(self, model, loss_func, optimizer, train_loader, test_loader):
+    def __init__(self, model, loss_func, optimizer, train_loader, test_loader, output_dim=2):
         self.model = model
         self.loss_func = loss_func
         self.optimizer = optimizer
         self.train_loader = train_loader
         self.test_loader = test_loader
+        self.output_dim = output_dim
     
     def train(self):
         self.model.train()
@@ -52,8 +52,7 @@ class GCNTrainer:
             #     data.to(mps_device) 
             
             out = self.model(data.x, data.edge_index, data.edge_attr, data.batch)
-            loss = self.loss_func(out, data.y)
-            # loss = self.loss_func(out.squeeze(), data.y.float())  #! for output channels = 1
+            loss = self.loss_func(out.squeeze(), data.y.float()) if self.output_dim == 1 else self.loss_func(out, data.y) 
             loss.backward()
             self.optimizer.step()
             self.optimizer.zero_grad()
@@ -65,11 +64,12 @@ class GCNTrainer:
         with torch.no_grad(): # improves efficiency ? during evaluation gradients do not need to be computed
             for data in loader:
                 out = self.model(data.x, data.edge_index, data.edge_attr, data.batch)
-                pred = out.argmax(dim=1)
-                # pred = (out.squeeze() > 0.5).int()  #! for output channels = 1
+                pred = (out.squeeze() > 0.5).int() if self.output_dim == 1 else out.argmax(dim=1)
                 correct += int((pred == data.y).sum())
-                total_loss += float(self.loss_func(out, data.y))
-                # total_loss += float(self.loss_func(out.squeeze(), data.y.float()))  #! for output channels = 1
+                if self.output_dim == 1:
+                    total_loss += float(self.loss_func(out.squeeze(), data.y.float()))
+                else:
+                    total_loss += float(self.loss_func(out, data.y))
         accuracy = correct / len(loader.dataset) 
         average_loss = total_loss / len(loader) # give average for whole test set rather than just the batch
         return accuracy, average_loss
