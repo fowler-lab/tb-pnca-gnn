@@ -1,0 +1,174 @@
+import torch
+from torch.nn import Linear
+import torch.nn.functional as F
+from torch_geometric.nn import GCNConv, GraphConv
+from torch_geometric.nn import global_mean_pool, global_max_pool
+from torch_geometric.loader import DataLoader
+import wandb
+import random
+
+from src.model_helpers import EarlyStopping
+
+
+class GCN(torch.nn.Module):
+    def __init__(self, input_channels, hidden_channels):
+        super(GCN, self).__init__()
+        torch.manual_seed(12345)
+        self.conv1 = GraphConv(input_channels, hidden_channels)
+        self.conv2 = GraphConv(hidden_channels, hidden_channels)
+        self.conv3 = GraphConv(hidden_channels, hidden_channels)
+        self.lin = Linear(hidden_channels, 2)
+        # self.lin = Linear(hidden_channels, 1)  #! for output channels = 1
+
+    def forward(self, x, edge_index, edge_weight, batch):
+        # 1. Obtain node embeddings 
+        x = self.conv1(x, edge_index, edge_weight)
+        x = x.relu()
+        x = self.conv2(x, edge_index, edge_weight)
+        x = x.relu()
+        x = self.conv3(x, edge_index, edge_weight)
+
+        # 2. Readout layer
+        x = global_mean_pool(x, batch)  # [batch_size, hidden_channels]
+
+        # 3. Apply a final classifier
+        x = F.dropout(x, p=0.5, training=self.training)
+        x = self.lin(x)
+        
+        return x
+
+class GCNTrainer:
+    def __init__(self, model, loss_func, optimizer, train_loader, test_loader):
+        self.model = model
+        self.loss_func = loss_func
+        self.optimizer = optimizer
+        self.train_loader = train_loader
+        self.test_loader = test_loader
+    
+    def train(self):
+        self.model.train()
+        for data in self.train_loader:
+            # if use_mps:
+            #     data.to(mps_device) 
+            
+            out = self.model(data.x, data.edge_index, data.edge_attr, data.batch)
+            loss = self.loss_func(out, data.y)
+            # loss = self.loss_func(out.squeeze(), data.y.float())  #! for output channels = 1
+            loss.backward()
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+
+    def test(self, loader):
+        self.model.eval()
+        correct = 0
+        total_loss = 0
+        with torch.no_grad(): # improves efficiency ? during evaluation gradients do not need to be computed
+            for data in loader:
+                out = self.model(data.x, data.edge_index, data.edge_attr, data.batch)
+                pred = out.argmax(dim=1)
+                # pred = (out.squeeze() > 0.5).int()  #! for output channels = 1
+                correct += int((pred == data.y).sum())
+                total_loss += float(self.loss_func(out, data.y))
+                # total_loss += float(self.loss_func(out.squeeze(), data.y.float()))  #! for output channels = 1
+        accuracy = correct / len(loader.dataset) 
+        average_loss = total_loss / len(loader) # give average for whole test set rather than just the batch
+        return accuracy, average_loss
+
+    def run(
+        self, 
+        epochs, 
+        use_wandb=False,
+        early_stop={
+            'patience': 20, 
+            'min_delta': 0
+            }, 
+        abort_on_thresh=0
+        ):
+        
+        train_accuracy = []
+        test_accuracy = []
+        train_loss = []
+        test_loss = []
+        
+        if early_stop:
+            patience = early_stop['patience']
+            min_delta = early_stop['min_delta']
+            print('Early stopping enabled. Patience:', patience, 'Min Delta:', min_delta)
+            early_stopping = EarlyStopping(patience=patience, min_delta=min_delta)
+    
+        for epoch in range(1, epochs + 1):
+            self.train()
+            tracc, trlss = self.test(self.train_loader)
+            train_accuracy.append(tracc)
+            train_loss.append(trlss)
+            
+            teacc, telss = self.test(self.test_loader)
+            test_accuracy.append(teacc)
+            test_loss.append(telss)
+            
+            if use_wandb:
+                wandb.log({"Train Accuracy": tracc, "Train Loss": trlss, "Test Accuracy": teacc, "Test Loss": telss})
+            
+            if epoch % 10 == 0:
+                print(f'Epoch: {epoch:03d}, Train Acc: {tracc:.4f}, Test Acc: {teacc:.4f}, Train Loss: {trlss:.4f}, Test Loss: {telss:.4f}')
+
+            if abort_on_thresh:
+                if teacc > abort_on_thresh:
+                    if epoch % 10 != 0:
+                        print(f'Epoch: {epoch:03d}, Train Acc: {tracc:.4f}, Test Acc: {teacc:.4f}, Train Loss: {trlss:.4f}, Test Loss: {telss:.4f}')
+                    print(f"Accuracy threshold of {abort_on_thresh} reached. Stopping training.")
+                    break
+                
+            if early_stop:
+                early_stopping(telss)
+                if early_stopping.early_stop:
+                    print(f"{patience} epochs passed without {min_delta} test loss improvement. \nEarly stopping triggered.")
+                    break
+
+        if use_wandb:
+            wandb.finish()
+
+        if abort_on_thresh:
+            return train_accuracy, test_accuracy, train_loss, test_loss, epoch
+        else:
+            return train_accuracy, test_accuracy, train_loss, test_loss
+
+
+def load(dataset, 
+         batch_size,
+         shuffle_dataset=True, 
+         train_split:int = 0.7,
+         test_split:int = 0.15,
+         val_split:int = 0.15
+         ):
+    
+    dataset_copy = dataset.copy()
+    
+    assert train_split + test_split + val_split == 1, "Split values must sum to 1"
+    
+    train_cutoff = int(len(dataset) * train_split)
+    test_cutoff = int(len(dataset) * (train_split + test_split))
+    
+    # todo: will need to edit to keep a conistent val_set, one which isn't subject to random shuffle
+    # need this to keep consistent with model selection
+    
+    if shuffle_dataset:
+        random.shuffle(dataset_copy)
+    
+    train_dataset = dataset_copy[:train_cutoff]
+    test_dataset = dataset_copy[train_cutoff:test_cutoff]
+    val_dataset = dataset_copy[test_cutoff:]
+    
+    dataset_split = {'train': train_dataset,
+                     'test': test_dataset,
+                     'val': val_dataset}
+    
+    # print('Train dataset length:', len(train_dataset))
+    # print('Test dataset length:', len(test_dataset))
+    # print('Validation dataset length:', len(val_dataset))
+    
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    
+    return train_loader, test_loader, val_loader, dataset_split
