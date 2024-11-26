@@ -43,7 +43,7 @@ class GCNTrainer:
         self.optimizer = optimizer
         self.train_loader = train_loader
         self.test_loader = test_loader
-        self.output_dim = output_dim
+        # self.output_dim = output_dim
     
     def train(self):
         self.model.train()
@@ -52,7 +52,8 @@ class GCNTrainer:
             #     data.to(mps_device) 
             
             out = self.model(data.x, data.edge_index, data.edge_attr, data.batch)
-            loss = self.loss_func(out.squeeze(), data.y.float()) if self.output_dim == 1 else self.loss_func(out, data.y) 
+            # loss = self.loss_func(out.squeeze(), data.y.float()) if self.output_dim == 1 else self.loss_func(out, data.y) 
+            loss = self.loss_func(out, data.y)
             loss.backward()
             self.optimizer.step()
             self.optimizer.zero_grad()
@@ -64,12 +65,14 @@ class GCNTrainer:
         with torch.no_grad(): # improves efficiency ? during evaluation gradients do not need to be computed
             for data in loader:
                 out = self.model(data.x, data.edge_index, data.edge_attr, data.batch)
-                pred = (out.squeeze() > 0.5).int() if self.output_dim == 1 else out.argmax(dim=1)
+                # pred = (out.squeeze() > 0.5).int() if self.output_dim == 1 else out.argmax(dim=1)
+                pred = out.argmax(dim=1)
                 correct += int((pred == data.y).sum())
-                if self.output_dim == 1:
-                    total_loss += float(self.loss_func(out.squeeze(), data.y.float()))
-                else:
-                    total_loss += float(self.loss_func(out, data.y))
+                # if self.output_dim == 1:
+                #     total_loss += float(self.loss_func(out.squeeze(), data.y.float()))
+                # else:
+                #     total_loss += float(self.loss_func(out, data.y))
+                total_loss += float(self.loss_func(out, data.y))
         accuracy = correct / len(loader.dataset) 
         average_loss = total_loss / len(loader) # give average for whole test set rather than just the batch
         return accuracy, average_loss

@@ -9,6 +9,7 @@ def calculate_sens_spec(model, data_loader):
     y_preds = torch.tensor([])
     y_trues = torch.tensor([])
     for data in data_loader:  # Iterate in batches over the test dataset.
+        data = data.to('cpu')
         out = model(data.x, data.edge_index, data.edge_attr, data.batch)
         
         if model.lin.out_features == 1:
@@ -49,6 +50,7 @@ def calculate_roc(model, data_loader):
     y_preds = torch.tensor([])
     y_trues = torch.tensor([])
     for data in data_loader:  # Iterate in batches over the test dataset.
+        data = data.to('cpu')
         out = model(data.x, data.edge_index, data.edge_attr, data.batch)
         
         if model.lin.out_features == 1:

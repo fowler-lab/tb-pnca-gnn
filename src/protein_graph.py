@@ -206,8 +206,12 @@ class ProteinGraph():
                         edge_index=self.edge_index,
                         edge_attr=ews, 
                         y=y, 
-                        device="mps")
+                        # device="cuda" if torch.cuda.is_available() else "mps"
+                        )
 
+            if torch.cuda.is_available():
+                data = data.to('cuda')
+            
             assert data.validate(raise_on_error=True)
 
             dataset.append(data)

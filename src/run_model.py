@@ -18,6 +18,7 @@ def pnca_simpleGCN(
     learning_rate,
     wd,
     epochs,
+    dataset = None,
     output_channels = 2,
     normalise_ews: bool = True,
     wandb_params = {'use_wandb': False, 'wandb_project': None, 'wandb_name': None}
@@ -46,51 +47,57 @@ def pnca_simpleGCN(
         test_loss (list): List of test losses
     """
     
-    wt_seq = 'MRALIIVDVQNDFCEGGSLAVTGGAALARAISDYLAEAADYHHVVATKDFHIDPGDHFSGTPDYSSSWPPHCVSGTPGADFHPSLDTSAIEAVFYKGAYTGAYSGFEGVDENGTPLLNWLRQRGVDEVDVVGIATDHCVRQTAEDAVRNGLATRVLVDLTAGVSADTTVAALEEMRTASVELVCS'
-    
-    # Create graph
-    pnca = pncaGraph(pdb='../pdb/3PL1-PZA.pdb',
-                     lig_resname='PZA', 
-                     self_loops=self_loops,
-                     cutoff_distance=cutoff_distance)
-    
-    if type(sequences) == pd.DataFrame:
-        # generate pyg Dataset
-        pnca.gen_dataset(wt_seq=wt_seq,
-                    sequences=sequences,
-                    edge_weights=edge_weight_func,
-                    normalise=normalise_ews,             
-                    )
+    if dataset is None:
         
-        train_split, test_split = 0.8, 0.2
+        wt_seq = 'MRALIIVDVQNDFCEGGSLAVTGGAALARAISDYLAEAADYHHVVATKDFHIDPGDHFSGTPDYSSSWPPHCVSGTPGADFHPSLDTSAIEAVFYKGAYTGAYSGFEGVDENGTPLLNWLRQRGVDEVDVVGIATDHCVRQTAEDAVRNGLATRVLVDLTAGVSADTTVAALEEMRTASVELVCS'
         
-    elif type(sequences) == dict:
-        assert 'test' and 'train' in sequences.keys(), "Please provide a dictionary with keys 'train' and 'test'"
+        # Create graph
+        pnca = pncaGraph(pdb='../pdb/3PL1-PZA.pdb',
+                        lig_resname='PZA', 
+                        self_loops=self_loops,
+                        cutoff_distance=cutoff_distance)
         
-        pnca.gen_dataset(wt_seq=wt_seq,
-                    sequences=sequences['train'],
-                    edge_weights=edge_weight_func,
-                    normalise=normalise_ews,             
-                    )
+        if type(sequences) == pd.DataFrame:
+            # generate pyg Dataset
+            pnca.gen_dataset(wt_seq=wt_seq,
+                        sequences=sequences,
+                        edge_weights=edge_weight_func,
+                        normalise=normalise_ews,             
+                        )
+            
+            train_split, test_split = 0.8, 0.2
+            
+        elif type(sequences) == dict:
+            assert 'test' and 'train' in sequences.keys(), "Please provide a dictionary with keys 'train' and 'test'"
+            
+            pnca.gen_dataset(wt_seq=wt_seq,
+                        sequences=sequences['train'],
+                        edge_weights=edge_weight_func,
+                        normalise=normalise_ews,             
+                        )
+            
+            train_dataset = pnca.dataset
+            
+            pnca.gen_dataset(wt_seq=wt_seq,
+                        sequences=sequences['test'],
+                        edge_weights=edge_weight_func,
+                        normalise=normalise_ews,             
+                        )
         
-        train_dataset = pnca.dataset
+            test_dataset = pnca.dataset
+            full_dataset = train_dataset + test_dataset
+            
+            train_split = len(train_dataset) / len(full_dataset)
+            test_split = len(test_dataset) / len(full_dataset)
         
-        pnca.gen_dataset(wt_seq=wt_seq,
-                    sequences=sequences['test'],
-                    edge_weights=edge_weight_func,
-                    normalise=normalise_ews,             
-                    )
-    
-        test_dataset = pnca.dataset
-        full_dataset = train_dataset + test_dataset
+        else:
+            raise ValueError("Please provide a pandas DataFrame or a dictionary with keys 'train' and 'test'")
         
-        train_split = len(train_dataset) / len(full_dataset)
-        test_split = len(test_dataset) / len(full_dataset)
-    
     else:
-        raise ValueError("Please provide a pandas DataFrame or a dictionary with keys 'train' and 'test'")
-    
-
+        full_dataset = dataset
+        train_split, test_split = 0.7, 0.3
+        
+        
     # Create DataLoaders for train and test set
     train_loader,test_loader,val_loader, dataset_dict = gcn_model.load(dataset=full_dataset,
                                         batch_size=batch_size,
@@ -98,7 +105,7 @@ def pnca_simpleGCN(
                                         train_split = train_split,
                                         test_split= test_split,
                                         val_split = 0)
-
+        
     # Set up GCN model
     model = gcn_model.GCN(
         input_channels= num_node_features,
@@ -106,6 +113,13 @@ def pnca_simpleGCN(
         output_channels= output_channels
         )
     
+    if torch.cuda.is_available():
+        # print('Using CUDA (all available GPUs)')
+        print('Using CUDA')
+        
+        # model = DistributedDataParallel(model)
+        model = model.to('cuda')
+        
     model.train_loader = train_loader
     model.test_loader = test_loader
     model.dataset_dict= dataset_dict
