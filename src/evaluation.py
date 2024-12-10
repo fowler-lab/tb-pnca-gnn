@@ -4,19 +4,25 @@ from sklearn.metrics import precision_score, recall_score, precision_recall_curv
 import numpy as np
 
 def calculate_sens_spec(model, data_loader):
-    model.eval()
+    eval_model = model.to('cpu')
+    eval_model.eval()
 
     y_preds = torch.tensor([])
     y_trues = torch.tensor([])
     for data in data_loader:  # Iterate in batches over the test dataset.
-        out = model(data.x, data.edge_index, data.edge_attr, data.batch)
+        eval_data = data.to('cpu')
+        out = eval_model(eval_data.x, eval_data.edge_index, eval_data.edge_attr, eval_data.batch)
         
-        pred = out.argmax(dim=1)  # Use the class with highest probability.
+        if eval_model.lin.out_features == 1:
+            pred = (out > 0.5).float()  # Convert output to binary predictions using a threshold of 0.5
+        else:
+            pred = out.argmax(dim=1)  # Use the class with highest probability.
+            
         # pred = out[:, 1]
         # print(pred)
         
         y_preds = torch.cat((y_preds, pred), 0)
-        y_trues = torch.cat((y_trues, data.y), 0)
+        y_trues = torch.cat((y_trues, eval_data.y), 0)
 
     y_preds = y_preds.detach().numpy()
     # print(y_preds)
@@ -39,20 +45,23 @@ def calculate_sens_spec(model, data_loader):
     
 
 def calculate_roc(model, data_loader):
-    
-    model.eval()
+    eval_model = model.to('cpu')
+    eval_model.eval()
 
     y_preds = torch.tensor([])
     y_trues = torch.tensor([])
     for data in data_loader:  # Iterate in batches over the test dataset.
-        out = model(data.x, data.edge_index, data.edge_attr, data.batch)
+        eval_data = data.to('cpu')
+        out = eval_model(eval_data.x, eval_data.edge_index, eval_data.edge_attr, eval_data.batch)
         
-        # pred = out.argmax(dim=1)  # Use the class with highest probability.
-        pred = out[:, 1]
+        if eval_model.lin.out_features == 1:
+            pred = out.squeeze() 
+        else:
+            pred = out[:, 1]
         # print(pred)
         
         y_preds = torch.cat((y_preds, pred), 0)
-        y_trues = torch.cat((y_trues, data.y), 0)
+        y_trues = torch.cat((y_trues, eval_data.y), 0)
 
     y_preds = y_preds.detach().numpy()
 
