@@ -165,21 +165,23 @@ def pnca_simpleGCN(
             "num_node_features": num_node_features,
             "learning_rate": learning_rate,
             "weight_decay": wd,
-            "architecture": "gCNN",
-            "dataset": "blaC",
             "cutoff_distance": cutoff_distance,
             "self_loops": self_loops,
-            "n_res": 1,
-            "n_sus": 1,
+            # "n_res": 1,
+            # "n_sus": 1,
             "n_samples": wandb_params['n_samples'],
-            "batch_size": 64,
+            "batch_size": batch_size,
             "epochs": epochs,
             }
         )
     
     train_acc, test_acc, train_loss, test_loss = gcntrainer.run(epochs=epochs,
                                                             use_wandb=wandb_params['use_wandb'],
-                                                            early_stop=False
+                                                            # early_stop=False
+                                                            early_stop={
+                                                                'patience': 20, 
+                                                                'min_delta': 0
+                                                                }
                                                             )
     
     return model, train_acc, test_acc, train_loss, test_loss

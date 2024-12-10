@@ -49,7 +49,9 @@ class GCNTrainer:
         self.model.train()
         for data in self.train_loader:
             # if use_mps:
-            #     data.to(mps_device) 
+            #     data.to(mps_device)
+            if torch.cuda.is_available():
+                data = data.to('cuda')
             
             out = self.model(data.x, data.edge_index, data.edge_attr, data.batch)
             # loss = self.loss_func(out.squeeze(), data.y.float()) if self.output_dim == 1 else self.loss_func(out, data.y) 
@@ -64,6 +66,8 @@ class GCNTrainer:
         total_loss = 0
         with torch.no_grad(): # improves efficiency ? during evaluation gradients do not need to be computed
             for data in loader:
+                if torch.cuda.is_available():
+                    data = data.to('cuda')
                 out = self.model(data.x, data.edge_index, data.edge_attr, data.batch)
                 # pred = (out.squeeze() > 0.5).int() if self.output_dim == 1 else out.argmax(dim=1)
                 pred = out.argmax(dim=1)
