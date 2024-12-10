@@ -4,40 +4,44 @@ import wandb
 import src.gcn_model as gcn_model
 import torch
 import pandas as pd
+from torch_geometric.data import Data
 
-from typing import Union
+from typing import Union, List
 
 def pnca_simpleGCN(
-    sequences: Union[pd.DataFrame, dict],
-    self_loops,
-    cutoff_distance,
-    edge_weight_func,
-    batch_size,
-    num_node_features,
-    hidden_channels,
-    learning_rate,
-    wd,
-    epochs,
-    dataset = None,
-    output_channels = 2,
+    self_loops: bool,
+    cutoff_distance: float,
+    edge_weight_func: str,
+    batch_size: int,
+    num_node_features: int,
+    hidden_channels: int,
+    learning_rate: float,
+    wd: float,
+    epochs: int,
+    sequences: Union[pd.DataFrame, dict] = None,
+    dataset: List[Data] = None,
+    output_channels: int = 2,
     normalise_ews: bool = True,
-    wandb_params = {'use_wandb': False, 'wandb_project': None, 'wandb_name': None}
+    wandb_params: dict = {'use_wandb': False, 'wandb_project': None, 'wandb_name': None}
     ):
     """
-    Runs PncA GCN model pipeline. Datasets must be generated prior.
+    Runs PncA GCN model pipeline. Sequence datasets must be generated prior.
 
     Args:
-        sequences (Union[pd.DataFrame, dict]): If train/test split already done, provide dict in form of {'train': train_df, 'test': test_df}
-        self_loops (_type_): _description_
-        cutoff_distance (_type_): _description_
-        edge_weight_func (_type_): _description_
-        batch_size (_type_): _description_
-        num_node_features (_type_): _description_
-        hidden_channels (_type_): _description_
-        learning_rate (_type_): _description_
-        wd (_type_): _description_
-        epochs (_type_): _description_
+        self_loops (bool): Include self loops in graph.
+        cutoff_distance (float): Distance cutoff in Angstroms for edges in the graph.
+        edge_weight_func (str): Edge weight function.
+        batch_size (int): Batch size for training.
+        num_node_features (int): Number of node features / size of input channel.
+        hidden_channels (int): Number of hidden channels.
+        learning_rate (float): Learning rate.
+        wd (float): Weight decay
+        epochs (int): Number of epochs in training.
+        sequences (Union[pd.DataFrame, dict]): If train/test split already done, provide dict in form of {'train': train_df, 'test': test_df}. Can be None if dataset is provided.
+        dataset (torch_geometric.data.Data): Full dataset. If provided, sequences will be ignored.
+        output_channels (int, optional): Number of output channels. Defaults to 2.
         normalise_ews (bool, optional): _description_. Defaults to True.
+        wandb_params (dict, optional): Dictionary to provide parameters for WandB run. Defaults to use_wandb = False.
 
     Returns:
         model (torch.nn.Module): Trained GCN model
