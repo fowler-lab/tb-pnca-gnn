@@ -167,6 +167,7 @@ def pnca_simpleGCN(
             # track hyperparameters and run metadata
             config={
             "num_node_features": num_node_features,
+            "hidden_channels": hidden_channels,
             "learning_rate": learning_rate,
             "weight_decay": wd,
             "cutoff_distance": cutoff_distance,
