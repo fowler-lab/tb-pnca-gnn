@@ -100,7 +100,7 @@ class GCNTrainer:
         if early_stop:
             patience = early_stop['patience']
             min_delta = early_stop['min_delta']
-            print('Early stopping enabled. Patience:', patience, 'Min Delta:', min_delta)
+            print(f'Early stopping enabled. Patience: {patience}. Min Delta: {min_delta}.')
             early_stopping = EarlyStopping(patience=patience, min_delta=min_delta)
     
         for epoch in range(1, epochs + 1):
