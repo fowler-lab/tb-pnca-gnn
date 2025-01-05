@@ -189,5 +189,6 @@ def pnca_simpleGCN(
                                                                 }
                                                             )
     
-    return model, train_acc, test_acc, train_loss, test_loss
+    # return model, train_acc, test_acc, train_loss, test_loss
+    return model
     

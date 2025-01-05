@@ -4,6 +4,8 @@ import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, GraphConv
 from torch_geometric.nn import global_mean_pool, global_max_pool
 from torch_geometric.loader import DataLoader
+from sklearn.metrics import confusion_matrix, f1_score
+
 import wandb
 import random
 
@@ -44,14 +46,14 @@ class GCNTrainer:
         self.train_loader = train_loader
         self.test_loader = test_loader
         # self.output_dim = output_dim
+        
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     def train(self):
         self.model.train()
         for data in self.train_loader:
-            # if use_mps:
-            #     data.to(mps_device)
-            if torch.cuda.is_available():
-                data = data.to('cuda')
+
+            data = data.to(self.device)
             
             out = self.model(data.x, data.edge_index, data.edge_attr, data.batch)
             # loss = self.loss_func(out.squeeze(), data.y.float()) if self.output_dim == 1 else self.loss_func(out, data.y) 
@@ -64,22 +66,43 @@ class GCNTrainer:
         self.model.eval()
         correct = 0
         total_loss = 0
+        y_true = []
+        y_pred = []
+        
         with torch.no_grad(): # improves efficiency ? during evaluation gradients do not need to be computed
             for data in loader:
-                if torch.cuda.is_available():
-                    data = data.to('cuda')
+                data = data.to(self.device)
+
                 out = self.model(data.x, data.edge_index, data.edge_attr, data.batch)
+               
                 # pred = (out.squeeze() > 0.5).int() if self.output_dim == 1 else out.argmax(dim=1)
                 pred = out.argmax(dim=1)
+                
                 correct += int((pred == data.y).sum())
+                
                 # if self.output_dim == 1:
                 #     total_loss += float(self.loss_func(out.squeeze(), data.y.float()))
                 # else:
                 #     total_loss += float(self.loss_func(out, data.y))
                 total_loss += float(self.loss_func(out, data.y))
+                
+                y_true += data.y.tolist()
+                y_pred += pred.tolist()
+                
+                
         accuracy = correct / len(loader.dataset) 
         average_loss = total_loss / len(loader) # give average for whole test set rather than just the batch
-        return accuracy, average_loss
+        
+        tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+        
+        # Sensitivity - true positive rate
+        sensitivity = tp / (tp + fn)
+        # Specificity - true negative rate
+        specificity = tn / (tn + fp)
+        # f1 score
+        f1 = f1_score(y_true, y_pred)
+        
+        return accuracy, average_loss, sensitivity, specificity, f1
 
     def run(
         self, 
@@ -96,6 +119,12 @@ class GCNTrainer:
         test_accuracy = []
         train_loss = []
         test_loss = []
+        train_sensitivity = []
+        test_sensitivity = []
+        train_specificity = []
+        test_specificity = []
+        train_f1 = []
+        test_f1 = []
         
         if early_stop:
             patience = early_stop['patience']
@@ -104,17 +133,38 @@ class GCNTrainer:
             early_stopping = EarlyStopping(patience=patience, min_delta=min_delta)
     
         for epoch in range(1, epochs + 1):
+            
             self.train()
-            tracc, trlss = self.test(self.train_loader)
+            
+            tracc, trlss, trsens, trspec, trf1 = self.test(self.train_loader)
+            
             train_accuracy.append(tracc)
             train_loss.append(trlss)
+            train_sensitivity.append(trsens)
+            train_specificity.append(trspec)
+            train_f1.append(trf1)
             
-            teacc, telss = self.test(self.test_loader)
+            teacc, telss, tesens, tespec, tef1 = self.test(self.test_loader)
+            
             test_accuracy.append(teacc)
             test_loss.append(telss)
+            test_sensitivity.append(tesens)
+            test_specificity.append(tespec)
+            test_f1.append(tef1)
             
             if use_wandb:
-                wandb.log({"Train Accuracy": tracc, "Train Loss": trlss, "Test Accuracy": teacc, "Test Loss": telss})
+                wandb.log({
+                    "Train Accuracy": tracc, 
+                    "Train Loss": trlss,
+                    "Train Sensitivity": trsens,
+                    "Train Specificity": trspec,
+                    "Train F1": trf1,
+                    "Test Accuracy": teacc, 
+                    "Test Loss": telss,
+                    "Test Sensitivity": tesens,
+                    "Test Specificity": tespec,
+                    "Test F1": tef1
+                    })
             
             if epoch % 10 == 0:
                 print(f'Epoch: {epoch:03d}, Train Acc: {tracc:.4f}, Test Acc: {teacc:.4f}, Train Loss: {trlss:.4f}, Test Loss: {telss:.4f}')
