@@ -22,7 +22,7 @@ def pnca_simpleGCN(
     dataset: List[Data] = None,
     output_channels: int = 2,
     normalise_ews: bool = True,
-    wandb_params: dict = {'use_wandb': False, 'wandb_project': None, 'wandb_name': None}
+    wandb_params: dict = {'use_wandb': False, 'wandb_project': None, 'wandb_name': None, 'sweep': False}
     ):
     """
     Runs PncA GCN model pipeline. Sequence datasets must be generated prior.
@@ -181,7 +181,7 @@ def pnca_simpleGCN(
         )
     
     train_acc, test_acc, train_loss, test_loss = gcntrainer.run(epochs=epochs,
-                                                            use_wandb=wandb_params['use_wandb'],
+                                                            use_wandb=wandb_params['use_wandb'] or wandb_params['sweep'],
                                                             # early_stop=False
                                                             early_stop={
                                                                 'patience': 20, 
