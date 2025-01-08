@@ -22,6 +22,7 @@ def pnca_simpleGCN(
     dataset: List[Data] = None,
     output_channels: int = 2,
     normalise_ews: bool = True,
+    dropout = 0.5,
     wandb_params: dict = {'use_wandb': False, 'wandb_project': None, 'wandb_name': None, 'sweep': False}
     ):
     """
@@ -114,7 +115,8 @@ def pnca_simpleGCN(
     model = gcn_model.GCN(
         input_channels= num_node_features,
         hidden_channels= hidden_channels,
-        output_channels= output_channels
+        output_channels= output_channels,
+        p=dropout
         )
     
     if torch.cuda.is_available():
