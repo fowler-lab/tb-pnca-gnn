@@ -1,5 +1,6 @@
 dd_pnca/wandb/
 dd_pnca/full_dataset.pth
+dd_pnca/full_orig_dataset.pth
 dd_pnca/saved_models
 
 # Byte-compiled / optimized / DLL files

@@ -22,7 +22,8 @@ def pnca_simpleGCN(
     dataset: List[Data] = None,
     output_channels: int = 2,
     normalise_ews: bool = True,
-    wandb_params: dict = {'use_wandb': False, 'wandb_project': None, 'wandb_name': None}
+    dropout = 0.5,
+    wandb_params: dict = {'use_wandb': False, 'wandb_project': None, 'wandb_name': None, 'sweep': False}
     ):
     """
     Runs PncA GCN model pipeline. Sequence datasets must be generated prior.
@@ -114,7 +115,8 @@ def pnca_simpleGCN(
     model = gcn_model.GCN(
         input_channels= num_node_features,
         hidden_channels= hidden_channels,
-        output_channels= output_channels
+        output_channels= output_channels,
+        p=dropout
         )
     
     if torch.cuda.is_available():
@@ -167,6 +169,7 @@ def pnca_simpleGCN(
             # track hyperparameters and run metadata
             config={
             "num_node_features": num_node_features,
+            "hidden_channels": hidden_channels,
             "learning_rate": learning_rate,
             "weight_decay": wd,
             "cutoff_distance": cutoff_distance,
@@ -180,7 +183,7 @@ def pnca_simpleGCN(
         )
     
     train_acc, test_acc, train_loss, test_loss = gcntrainer.run(epochs=epochs,
-                                                            use_wandb=wandb_params['use_wandb'],
+                                                            use_wandb=wandb_params['use_wandb'] or wandb_params['sweep'],
                                                             # early_stop=False
                                                             early_stop={
                                                                 'patience': 20, 
@@ -188,5 +191,6 @@ def pnca_simpleGCN(
                                                                 }
                                                             )
     
-    return model, train_acc, test_acc, train_loss, test_loss
+    # return model, train_acc, test_acc, train_loss, test_loss
+    return model
     
