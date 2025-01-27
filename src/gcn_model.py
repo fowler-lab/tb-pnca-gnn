@@ -3,6 +3,7 @@ from torch.nn import Linear
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, GraphConv
 from torch_geometric.nn import global_mean_pool, global_max_pool
+from torch_geometric.nn.norm import BatchNorm
 from torch_geometric.loader import DataLoader
 from sklearn.metrics import confusion_matrix, f1_score
 
@@ -20,14 +21,20 @@ class GCN(torch.nn.Module):
         self.conv2 = GraphConv(hidden_channels, hidden_channels)
         self.conv3 = GraphConv(hidden_channels, hidden_channels)
         self.lin = Linear(hidden_channels, output_channels)
+        self.batchnorm1 = BatchNorm(hidden_channels)
+        self.batchnorm2 = BatchNorm(hidden_channels)
         self.p = p
 
     def forward(self, x, edge_index, edge_weight, batch):
         # 1. Obtain node embeddings 
         x = self.conv1(x, edge_index, edge_weight)
+        x = self.batchnorm1(x)
         x = x.relu()
+        
         x = self.conv2(x, edge_index, edge_weight)
+        x = self.batchnorm2(x)
         x = x.relu()
+        
         x = self.conv3(x, edge_index, edge_weight)
 
         # 2. Readout layer
