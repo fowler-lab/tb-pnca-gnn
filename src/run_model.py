@@ -23,6 +23,7 @@ def pnca_simpleGCN(
     output_channels: int = 2,
     normalise_ews: bool = True,
     dropout = 0.5,
+    lr_scheduling = False,
     wandb_params: dict = {'use_wandb': False, 'wandb_project': None, 'wandb_name': None, 'sweep': False}
     ):
     """
@@ -52,15 +53,15 @@ def pnca_simpleGCN(
         test_loss (list): List of test losses
     """
     
+    # Create graph
+    pnca = pncaGraph(pdb='../pdb/3PL1-PZA.pdb',
+                    lig_resname='PZA', 
+                    self_loops=self_loops,
+                    cutoff_distance=cutoff_distance)
+    
     if dataset is None:
         
         wt_seq = 'MRALIIVDVQNDFCEGGSLAVTGGAALARAISDYLAEAADYHHVVATKDFHIDPGDHFSGTPDYSSSWPPHCVSGTPGADFHPSLDTSAIEAVFYKGAYTGAYSGFEGVDENGTPLLNWLRQRGVDEVDVVGIATDHCVRQTAEDAVRNGLATRVLVDLTAGVSADTTVAALEEMRTASVELVCS'
-        
-        # Create graph
-        pnca = pncaGraph(pdb='../pdb/3PL1-PZA.pdb',
-                        lig_resname='PZA', 
-                        self_loops=self_loops,
-                        cutoff_distance=cutoff_distance)
         
         if type(sequences) == pd.DataFrame:
             # generate pyg Dataset
@@ -99,7 +100,15 @@ def pnca_simpleGCN(
             raise ValueError("Please provide a pandas DataFrame or a dictionary with keys 'train' and 'test'")
         
     else:
+        
         full_dataset = dataset
+        
+        if edge_weight_func != 'none':
+        # attach edge weights and correct edge index for varying cutoff distance
+            for sample in full_dataset:
+                sample.edge_index = pnca.edge_index
+                sample.edge_attr = pnca.calc_edge_weights(edge_weight_func, pnca.edge_dists)
+                    
         train_split, test_split = 0.7, 0.3
         
         
@@ -132,18 +141,20 @@ def pnca_simpleGCN(
 
     # Define optimizer and loss function
     
-    # optimizer = torch.optim.Adam(
-    #     model.parameters(), 
-    #     lr=learning_rate, 
-    #     weight_decay=wd
-    #     )
-    
-    #* Try AdamW optimizer
+    # AdamW optimizer
     optimizer = torch.optim.AdamW(
         model.parameters(), 
         lr=learning_rate, 
         weight_decay=wd
         )
+    
+    #* Try lr scheduler
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer=optimizer,
+        factor=0.5,
+        patience=10,
+        verbose=True
+        ) if lr_scheduling else None
     
     if output_channels == 1:
         criterion = torch.nn.BCEWithLogitsLoss()
@@ -156,6 +167,7 @@ def pnca_simpleGCN(
                                 optimizer=optimizer,
                                 train_loader=train_loader,
                                 test_loader=test_loader,
+                                scheduler=scheduler,
                                 output_dim=output_channels
                                 )
     

@@ -168,7 +168,7 @@ class ProteinGraph():
         wt_seq, 
         sequences: pd.DataFrame,
         edge_weights: str,
-        normalise: bool = False
+        normalise: bool = True
         ):
         """_summary_
 

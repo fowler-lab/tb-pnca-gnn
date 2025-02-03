@@ -47,12 +47,13 @@ class GCN(torch.nn.Module):
         return x
 
 class GCNTrainer:
-    def __init__(self, model, loss_func, optimizer, train_loader, test_loader, output_dim=2):
+    def __init__(self, model, loss_func, optimizer, train_loader, test_loader, scheduler=None, output_dim=2):
         self.model = model
         self.loss_func = loss_func
         self.optimizer = optimizer
         self.train_loader = train_loader
         self.test_loader = test_loader
+        self.scheduler = scheduler
         # self.output_dim = output_dim
         
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -139,6 +140,11 @@ class GCNTrainer:
             min_delta = early_stop['min_delta']
             print(f'Early stopping enabled. Patience: {patience}. Min Delta: {min_delta}.')
             early_stopping = EarlyStopping(patience=patience, min_delta=min_delta)
+            
+        if self.scheduler is not None:
+            print(f'Learning rate scheduler enabled. Patience: {self.scheduler.patience}. Factor: {self.scheduler.factor}.')
+            prev_lr = self.optimizer.param_groups[0]['lr']
+            print(f'Initial learning rate: {prev_lr}')
     
         for epoch in range(1, epochs + 1):
             
@@ -177,6 +183,13 @@ class GCNTrainer:
             if epoch % 10 == 0:
                 print(f'Epoch: {epoch:03d}, Train Acc: {tracc:.4f}, Test Acc: {teacc:.4f}, Train Loss: {trlss:.4f}, Test Loss: {telss:.4f}')
 
+            if self.scheduler is not None:
+                self.scheduler.step(telss)
+                current_lr = self.optimizer.param_groups[0]['lr']
+                if current_lr != prev_lr:
+                    print(f'Epoch: {epoch:03d}, Learning rate changed from {prev_lr} to {current_lr}')
+                    prev_lr = current_lr
+                
             if abort_on_thresh:
                 if teacc > abort_on_thresh:
                     if epoch % 10 != 0:
