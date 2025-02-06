@@ -163,6 +163,15 @@ class ProteinGraph():
         
         return ews
     
+    def process_edge_weights(self, edge_weights):
+        
+        edge_weights = np.array(edge_weights).reshape(-1,1)
+        transformer = MinMaxScaler().fit(edge_weights)
+        edge_weights = transformer.transform(edge_weights)
+        edge_weights = torch.tensor(edge_weights)
+            
+        return edge_weights
+    
     def gen_dataset(
         self, 
         wt_seq, 
@@ -182,12 +191,9 @@ class ProteinGraph():
         dataset = []
         
         ews = self.calc_edge_weights(edge_weights, self.edge_dists)
-                    
+        
         if normalise and edge_weights != 'none':
-            ews = np.array(ews).reshape(-1,1)
-            transformer = MinMaxScaler().fit(ews)
-            ews = transformer.transform(ews)
-            ews = torch.tensor(ews)
+            ews = self.process_edge_weights(ews)
             
         dists_df = self.gen_dist_features(wt_seq)
             
