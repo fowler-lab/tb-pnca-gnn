@@ -140,8 +140,8 @@ class ProteinGraph():
         features.df = features.df.sort_values(by='resid', ascending=True)
          
         x = np.array(features.df)[:,3:]
-        transformer = MinMaxScaler().fit(x)
-        x = transformer.transform(x)
+        # transformer = MinMaxScaler().fit(x)
+        # x = transformer.transform(x)
         x = torch.tensor(x.tolist(), dtype=torch.float)
 
         return x
@@ -215,15 +215,118 @@ class ProteinGraph():
                         # device="cuda" if torch.cuda.is_available() else "mps"
                         )
 
-            if torch.cuda.is_available():
-                data = data.to('cuda')
+            # if torch.cuda.is_available():
+            #     data = data.to('cuda')
             
             assert data.validate(raise_on_error=True)
 
             dataset.append(data)
-            
+        
+        # normalise, column wise for entire dataset
+        all_features = torch.cat([data.x for data in dataset], dim=0)
+        scaler = MinMaxScaler()
+        scaler.fit(all_features.numpy())
+        
+        # Apply normalization to each graph
+        for data in dataset:
+            data.x = torch.tensor(scaler.transform(data.x.numpy()), dtype=torch.float)
+        
         self.dataset = dataset
+        
+    def attach_snap2(self, df):
+    
+        assert "snap2_score" not in df.columns, "Snap2 already added"
+        
+        assert (
+                "mutation" in df.columns
+            ), "Passed dataframe must contain a column called mutation"
+        
+        snap2 = sbmlcore.SNAP2('../data/features/3pl1-snap2-with-segids.csv', offsets={'A': 0})
+        
+        df = pd.merge(df, snap2.results[['mutation', 'snap2_score']], on='mutation', how='left')
+        df['snap2_score'] = df['snap2_score'].fillna(-100)
+        
+        return df
+    
+    def attach_deepddg(self, df):
+        
+        assert "deep_ddG" not in df.columns, "DeepDDG already added"
+        
+        deepddg = sbmlcore.DeepDDG('../data/features/3pl1.ddg')
+        
+        df = pd.merge(df, deepddg.results, 
+                            left_on=['segid', 'ref', 'resid', 'amino_acid'], 
+                            right_on=['segid', 'ref_amino_acid', 'resid', 'alt_amino_acid'],
+                            how='left')
+        df.drop(columns = ['ref_amino_acid', 'alt_amino_acid'], inplace=True)
+        df['deep_ddG'] = df['deep_ddG'].fillna(0.0)
+        
+        return df
+    
+    def attach_rasp(self, df):
+    
+        assert "rasp_score_ml" not in df.columns, "RaSP already added"
 
+        rasp = sbmlcore.RaSP('../data/features/cavity_pred_3PL1_A.csv')
+        
+        df = pd.merge(df, rasp.results, 
+                            left_on=['segid', 'ref', 'resid', 'amino_acid'], 
+                            right_on=['segid', 'ref_amino_acid', 'resid', 'alt_amino_acid'],
+                            how='left')
+        df.drop(columns = ['ref_amino_acid', 'alt_amino_acid', 'rasp_wt_nlf', 'rasp_mt_nlf', 'rasp_score_ml_fermi'], inplace=True)
+
+        df['rasp_score_ml'] = np.where(
+            df['mutation'].isna(),
+            0.0,
+            df['rasp_score_ml']
+        )
+        
+        return df
+    
+    def attach_mapp(self, df):
+    
+        assert "mapp_score" not in df.columns, "MAPP already added"    
+        
+        mapp_df = pd.read_csv('../data/features/3pl1-mapp_scores.csv')
+        mapp = pd.melt(mapp_df, id_vars='Position',value_vars=['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y'])
+        mapp.rename(columns={'Position': 'codon', 'variable': 'alt_amino_acid', 'value': 'mapp_score'}, inplace=True)
+
+        df = pd.merge(df, mapp, 
+                            left_on=['resid', 'amino_acid'], 
+                            right_on=['codon','alt_amino_acid'],
+                            how='left')
+        df.drop(columns = ['codon', 'alt_amino_acid'], inplace=True)
+
+
+        df['mapp_score'] = np.where(
+            df['mutation'].isna(),
+            0.0,
+            df['mapp_score']
+        )
+        
+        return df
+    
+    def add_mutation_features(self, features_df):
+        
+        wt_seq = 'MRALIIVDVQNDFCEGGSLAVTGGAALARAISDYLAEAADYHHVVATKDFHIDPGDHFSGTPDYSSSWPPHCVSGTPGADFHPSLDTSAIEAVFYKGAYTGAYSGFEGVDENGTPLLNWLRQRGVDEVDVVGIATDHCVRQTAEDAVRNGLATRVLVDLTAGVSADTTVAALEEMRTASVELVCS'
+        
+        features_df = pd.concat([features_df, pd.DataFrame(list(wt_seq), columns=['ref'])], axis=1)
+        
+        features_df['mutation'] = features_df.apply(
+            lambda row: f"{row['ref']}{row['resid']}{row['amino_acid']}" 
+            if row['amino_acid'] != row['ref'] else None, 
+            axis=1
+            )
+        
+        features_df = self.attach_snap2(features_df)
+        features_df = self.attach_deepddg(features_df)
+        features_df = self.attach_rasp(features_df)
+        features_df = self.attach_mapp(features_df)
+        
+        features_df.drop(columns=['ref', 'mutation'], inplace=True)
+        
+        return features_df
+        
 class pncaGraph(ProteinGraph):
     """
     Class for PncA protein graph construction. Inherits from ProteinGraph (BlaC graph class).
@@ -289,11 +392,13 @@ class pncaGraph(ProteinGraph):
                 features.df.reset_index(inplace=True)
                 features.df['PZA_dist'] = features.df['PZA_dist'].astype('float') 
         
+        features.df = self.add_mutation_features(features.df)
+        
         features.df = features.df.sort_values(by='resid', ascending=True)
-         
+        
         x = np.array(features.df)[:,3:]
-        transformer = MinMaxScaler().fit(x)
-        x = transformer.transform(x)
+        # transformer = MinMaxScaler().fit(x)
+        # x = transformer.transform(x)
         x = torch.tensor(x.tolist(), dtype=torch.float)
 
         return x
