@@ -215,8 +215,8 @@ class ProteinGraph():
                         # device="cuda" if torch.cuda.is_available() else "mps"
                         )
 
-            if torch.cuda.is_available():
-                data = data.to('cuda')
+            # if torch.cuda.is_available():
+            #     data = data.to('cuda')
             
             assert data.validate(raise_on_error=True)
 
