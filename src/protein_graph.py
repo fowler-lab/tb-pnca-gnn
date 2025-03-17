@@ -18,7 +18,8 @@ class ProteinGraph():
         pdb: str, 
         lig_resname: str, 
         self_loops: bool, 
-        cutoff_distance = 5.6
+        cutoff_distance = 5.6,
+        end_length = False
         ):
         
         self.pdb = pdb
@@ -27,7 +28,7 @@ class ProteinGraph():
         self.self_loops = self_loops
         
         self.lig_selection = f'resname {self.lig_resname} and chainID A'
-        self.end_length = False
+        self.end_length = end_length
         
         self.nodes = self._get_protein_struct_nodes()
         self.edge_index, self.d_array = self._get_protein_struct_edges(self.nodes.center_of_mass(compound='residues'))
@@ -197,7 +198,7 @@ class ProteinGraph():
             
         dists_df = self.gen_dist_features(wt_seq)
             
-        for idx,row in tqdm(sequences.iterrows(), total=len(sequences)):
+        for idx,row in tqdm(sequences.iterrows(), total=len(sequences), disable=(len(sequences) == 1)):
             
             if self.end_length:
                 resids = self.build_resids(row.allele[:self.end_length])
@@ -333,21 +334,35 @@ class pncaGraph(ProteinGraph):
     """
     def __init__(
         self, 
-        pdb: str, 
+        pdb: str,
         lig_resname: str, 
-        self_loops: bool, 
+        self_loops: bool,
+        lig_pdb: str = None, #! temp arg to use coordinates for CLAV bound to WT 
         cutoff_distance = 5.6
         ):
         
-        super().__init__(pdb, lig_resname, self_loops, cutoff_distance)
-        
         self.end_length = 185
+        
+        super().__init__(pdb, lig_resname, self_loops, cutoff_distance, self.end_length)
+        
+        # temp code
+        if lig_pdb is None:
+            self.lig_pdb = self.pdb
+        else:
+            self.lig_pdb = lig_pdb
+        # temp code
+        
         self.lig_selection = f'resname {self.lig_resname}'
             
     def _get_protein_struct_nodes(self):
         protein_structure = mda.Universe(self.pdb)
         nodes = protein_structure.select_atoms('protein and not name C N O')
 
+        # restrict nodes to first 185 Pnca residues (last one not included in -PZA bound pdb)
+        first_res = nodes.residues.resids[0]
+        last_res = nodes.residues.resids[self.end_length-1]
+        nodes = nodes.select_atoms(f'resid {first_res}:{last_res}')
+        
         return nodes
     
     def gen_dist_features(self, wt_seq: str) -> pd.DataFrame:
@@ -355,7 +370,12 @@ class pncaGraph(ProteinGraph):
         res_df = pd.DataFrame(resids, columns=['segid', 'amino_acid', 'resid'])
 
         dists_dataset = sbmlcore.FeatureDataset(res_df,species='M. tuberculosis', gene='pncA', protein='PncA')
-        dist = sbmlcore.StructuralDistances(self.pdb, self.lig_selection, 'PZA_dist',dataset_type='amino_acid', infer_masses=False)
+        # dist = sbmlcore.StructuralDistances(self.pdb, self.lig_selection, 'PZA_dist',dataset_type='amino_acid', infer_masses=False)
+        
+        # temp adjustment
+        dist = sbmlcore.StructuralDistances(self.lig_pdb, self.lig_selection, 'PZA_dist',dataset_type='amino_acid', infer_masses=False)
+        # temp adjustment
+        
         dists_dataset.add_feature(dist)
         
         stride = sbmlcore.Stride(self.pdb, dataset_type='amino_acid')
