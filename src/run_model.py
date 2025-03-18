@@ -292,7 +292,7 @@ def pnca_GCN_vary_graph(
         full_dataset.append(graph_dict['train'][sample]['graph'].dataset[0])
     for sample in graph_dict['test']:
         full_dataset.append(graph_dict['test'][sample]['graph'].dataset[0])
-    
+    return full_dataset
     # Create DataLoaders for train and test set
     train_loader,test_loader,val_loader, dataset_dict = gcn_model.load(dataset=full_dataset,
                                         batch_size=batch_size,

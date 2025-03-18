@@ -195,8 +195,10 @@ class ProteinGraph():
         
         if normalise and edge_weights != 'none':
             ews = self.process_edge_weights(ews)
-            
-        dists_df = self.gen_dist_features(wt_seq)
+        
+        #! hack for alphafold structures: so dists_df can join properly
+        # dists_df = self.gen_dist_features(wt_seq)
+        dists_df = self.gen_dist_features(sequences.allele.values[0][:self.end_length])
             
         for idx,row in tqdm(sequences.iterrows(), total=len(sequences), disable=(len(sequences) == 1)):
             
@@ -373,7 +375,9 @@ class pncaGraph(ProteinGraph):
         # dist = sbmlcore.StructuralDistances(self.pdb, self.lig_selection, 'PZA_dist',dataset_type='amino_acid', infer_masses=False)
         
         # temp adjustment
+        # wt seq changed to mutant allele sequence
         dist = sbmlcore.StructuralDistances(self.lig_pdb, self.lig_selection, 'PZA_dist',dataset_type='amino_acid', infer_masses=False)
+        dist.results['amino_acid'] = list(wt_seq)
         # temp adjustment
         
         dists_dataset.add_feature(dist)
