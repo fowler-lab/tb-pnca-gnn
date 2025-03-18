@@ -225,14 +225,15 @@ class ProteinGraph():
 
             dataset.append(data)
         
-        # normalise, column wise for entire dataset
-        all_features = torch.cat([data.x for data in dataset], dim=0)
-        scaler = MinMaxScaler()
-        scaler.fit(all_features.numpy())
+        #! temp for alphafold structures
+        # # normalise, column wise for entire dataset
+        # all_features = torch.cat([data.x for data in dataset], dim=0)
+        # scaler = MinMaxScaler()
+        # scaler.fit(all_features.numpy())
         
-        # Apply normalization to each graph
-        for data in dataset:
-            data.x = torch.tensor(scaler.transform(data.x.numpy()), dtype=torch.float)
+        # # Apply normalization to each graph
+        # for data in dataset:
+        #     data.x = torch.tensor(scaler.transform(data.x.numpy()), dtype=torch.float)
         
         self.dataset = dataset
         
