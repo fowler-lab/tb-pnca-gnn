@@ -5,6 +5,7 @@ import src.gcn_model as gcn_model
 import torch
 import pandas as pd
 from torch_geometric.data import Data
+from sklearn.preprocessing import MinMaxScaler
 
 from typing import Union, List
 
@@ -293,8 +294,17 @@ def pnca_GCN_vary_graph(
     for sample in graph_dict['test']:
         full_dataset.append(graph_dict['test'][sample]['graph'].dataset[0])
     
-    return full_dataset
-    #! need to normalise node features !
+    # normalise, column wise for entire dataset
+    all_features = torch.cat([data.x for data in full_dataset], dim=0)
+    scaler = MinMaxScaler()
+    scaler.fit(all_features.numpy())
+
+    # Apply normalization to each graph
+    for data in full_dataset:
+        data.x = torch.tensor(scaler.transform(data.x.numpy()), dtype=torch.float)
+    
+    # return full_dataset
+
     # Create DataLoaders for train and test set
     train_loader,test_loader,val_loader, dataset_dict = gcn_model.load(dataset=full_dataset,
                                         batch_size=batch_size,
