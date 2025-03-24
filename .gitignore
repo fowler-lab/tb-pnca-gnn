@@ -3,6 +3,8 @@ dd_pnca/datasets
 dd_pnca/saved_models
 pdb/train_structures
 pdb/test_structures
+pdb/test_pza
+pdb/train_pza
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

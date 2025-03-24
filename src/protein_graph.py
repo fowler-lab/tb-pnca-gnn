@@ -7,6 +7,7 @@ import sbmlcore
 from sklearn.preprocessing import MinMaxScaler
 from tqdm import tqdm
 from torch_geometric.data import Data, HeteroData
+from src.model_helpers import convert_3letter_to_sequence
 
 class ProteinGraph():
     """
@@ -196,9 +197,9 @@ class ProteinGraph():
         if normalise and edge_weights != 'none':
             ews = self.process_edge_weights(ews)
         
+        dists_df = self.gen_dist_features(wt_seq)
         #! hack for alphafold structures: so dists_df can join properly
-        # dists_df = self.gen_dist_features(wt_seq)
-        dists_df = self.gen_dist_features(sequences.allele.values[0][:self.end_length])
+        # dists_df = self.gen_dist_features(sequences.allele.values[0][:self.end_length])
             
         for idx,row in tqdm(sequences.iterrows(), total=len(sequences), disable=(len(sequences) == 1)):
             
@@ -340,7 +341,7 @@ class pncaGraph(ProteinGraph):
         pdb: str,
         lig_resname: str, 
         self_loops: bool,
-        lig_pdb: str = None, #! temp arg to use coordinates for CLAV bound to WT 
+        # lig_pdb: str = None, #! temp arg to use coordinates for CLAV bound to WT 
         cutoff_distance = 5.6
         ):
         
@@ -348,12 +349,12 @@ class pncaGraph(ProteinGraph):
         
         super().__init__(pdb, lig_resname, self_loops, cutoff_distance, self.end_length)
         
-        # temp code
-        if lig_pdb is None:
-            self.lig_pdb = self.pdb
-        else:
-            self.lig_pdb = lig_pdb
-        # temp code
+        # # temp code
+        # if lig_pdb is None:
+        #     self.lig_pdb = self.pdb
+        # else:
+        #     self.lig_pdb = lig_pdb
+        # # temp code
         
         self.lig_selection = f'resname {self.lig_resname}'
             
@@ -369,17 +370,15 @@ class pncaGraph(ProteinGraph):
         return nodes
     
     def gen_dist_features(self, wt_seq: str) -> pd.DataFrame:
-        resids = self.build_resids(wt_seq)
+        # resids = self.build_resids(wt_seq)
+        seq = convert_3letter_to_sequence(self.nodes.residues.resnames)
+        resids = self.build_resids(seq)
+        
         res_df = pd.DataFrame(resids, columns=['segid', 'amino_acid', 'resid'])
 
         dists_dataset = sbmlcore.FeatureDataset(res_df,species='M. tuberculosis', gene='pncA', protein='PncA')
-        # dist = sbmlcore.StructuralDistances(self.pdb, self.lig_selection, 'PZA_dist',dataset_type='amino_acid', infer_masses=False)
-        
-        # temp adjustment
-        # wt seq changed to mutant allele sequence
-        dist = sbmlcore.StructuralDistances(self.lig_pdb, self.lig_selection, 'PZA_dist',dataset_type='amino_acid', infer_masses=False)
-        dist.results['amino_acid'] = list(wt_seq)
-        # temp adjustment
+     
+        dist = sbmlcore.StructuralDistances(self.pdb, self.lig_selection, 'PZA_dist',dataset_type='amino_acid', infer_masses=False)
         
         dists_dataset.add_feature(dist)
         
