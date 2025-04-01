@@ -1,7 +1,8 @@
 dd_pnca/wandb/
-dd_pnca/full_dataset.pth
-dd_pnca/full_orig_dataset.pth
+dd_pnca/datasets
 dd_pnca/saved_models
+pdb/train_structures
+pdb/test_structures
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

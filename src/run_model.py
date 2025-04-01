@@ -105,9 +105,13 @@ def pnca_simpleGCN(
         
         if edge_weight_func != 'none':
         # attach edge weights and correct edge index for varying cutoff distance
+
+            print(f'Adjusting edge index and attaching edge weights for cutoff distance {cutoff_distance}')
             for sample in full_dataset:
                 sample.edge_index = pnca.edge_index
                 sample.edge_attr = pnca.calc_edge_weights(edge_weight_func, pnca.edge_dists)
+                if normalise_ews:
+                    sample.edge_attr = pnca.process_edge_weights(sample.edge_attr)
                     
         train_split, test_split = 0.7, 0.3
         
