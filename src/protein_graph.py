@@ -7,6 +7,7 @@ import sbmlcore
 from sklearn.preprocessing import MinMaxScaler
 from tqdm import tqdm
 from torch_geometric.data import Data, HeteroData
+from src.model_helpers import convert_3letter_to_sequence
 
 class ProteinGraph():
     """
@@ -18,7 +19,8 @@ class ProteinGraph():
         pdb: str, 
         lig_resname: str, 
         self_loops: bool, 
-        cutoff_distance = 5.6
+        cutoff_distance = 5.6,
+        end_length = False
         ):
         
         self.pdb = pdb
@@ -27,7 +29,7 @@ class ProteinGraph():
         self.self_loops = self_loops
         
         self.lig_selection = f'resname {self.lig_resname} and chainID A'
-        self.end_length = False
+        self.end_length = end_length
         
         self.nodes = self._get_protein_struct_nodes()
         self.edge_index, self.d_array = self._get_protein_struct_edges(self.nodes.center_of_mass(compound='residues'))
@@ -194,10 +196,12 @@ class ProteinGraph():
         
         if normalise and edge_weights != 'none':
             ews = self.process_edge_weights(ews)
-            
+        
         dists_df = self.gen_dist_features(wt_seq)
+        #! hack for alphafold structures: so dists_df can join properly
+        # dists_df = self.gen_dist_features(sequences.allele.values[0][:self.end_length])
             
-        for idx,row in tqdm(sequences.iterrows(), total=len(sequences)):
+        for idx,row in tqdm(sequences.iterrows(), total=len(sequences), disable=(len(sequences) == 1)):
             
             if self.end_length:
                 resids = self.build_resids(row.allele[:self.end_length])
@@ -222,14 +226,15 @@ class ProteinGraph():
 
             dataset.append(data)
         
-        # normalise, column wise for entire dataset
-        all_features = torch.cat([data.x for data in dataset], dim=0)
-        scaler = MinMaxScaler()
-        scaler.fit(all_features.numpy())
+        #! temp for alphafold structures
+        # # normalise, column wise for entire dataset
+        # all_features = torch.cat([data.x for data in dataset], dim=0)
+        # scaler = MinMaxScaler()
+        # scaler.fit(all_features.numpy())
         
-        # Apply normalization to each graph
-        for data in dataset:
-            data.x = torch.tensor(scaler.transform(data.x.numpy()), dtype=torch.float)
+        # # Apply normalization to each graph
+        # for data in dataset:
+        #     data.x = torch.tensor(scaler.transform(data.x.numpy()), dtype=torch.float)
         
         self.dataset = dataset
         
@@ -333,29 +338,48 @@ class pncaGraph(ProteinGraph):
     """
     def __init__(
         self, 
-        pdb: str, 
+        pdb: str,
         lig_resname: str, 
-        self_loops: bool, 
+        self_loops: bool,
+        # lig_pdb: str = None, #! temp arg to use coordinates for CLAV bound to WT 
         cutoff_distance = 5.6
         ):
         
-        super().__init__(pdb, lig_resname, self_loops, cutoff_distance)
-        
         self.end_length = 185
+        
+        super().__init__(pdb, lig_resname, self_loops, cutoff_distance, self.end_length)
+        
+        # # temp code
+        # if lig_pdb is None:
+        #     self.lig_pdb = self.pdb
+        # else:
+        #     self.lig_pdb = lig_pdb
+        # # temp code
+        
         self.lig_selection = f'resname {self.lig_resname}'
             
     def _get_protein_struct_nodes(self):
         protein_structure = mda.Universe(self.pdb)
         nodes = protein_structure.select_atoms('protein and not name C N O')
 
+        # restrict nodes to first 185 Pnca residues (last one not included in -PZA bound pdb)
+        first_res = nodes.residues.resids[0]
+        last_res = nodes.residues.resids[self.end_length-1]
+        nodes = nodes.select_atoms(f'resid {first_res}:{last_res}')
+        
         return nodes
     
     def gen_dist_features(self, wt_seq: str) -> pd.DataFrame:
-        resids = self.build_resids(wt_seq)
+        # resids = self.build_resids(wt_seq)
+        seq = convert_3letter_to_sequence(self.nodes.residues.resnames)
+        resids = self.build_resids(seq)
+        
         res_df = pd.DataFrame(resids, columns=['segid', 'amino_acid', 'resid'])
 
         dists_dataset = sbmlcore.FeatureDataset(res_df,species='M. tuberculosis', gene='pncA', protein='PncA')
+     
         dist = sbmlcore.StructuralDistances(self.pdb, self.lig_selection, 'PZA_dist',dataset_type='amino_acid', infer_masses=False)
+        
         dists_dataset.add_feature(dist)
         
         stride = sbmlcore.Stride(self.pdb, dataset_type='amino_acid')
