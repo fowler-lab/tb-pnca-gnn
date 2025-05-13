@@ -224,6 +224,7 @@ def pnca_GCN_vary_graph(
     graph_dict: dict ,
     output_channels: int = 2,
     normalise_ews: bool = True,
+    lambda_param: float = None,
     dropout = 0.5,
     lr_scheduling = False,
     wandb_params: dict = {'use_wandb': False, 'wandb_project': None, 'wandb_name': None, 'sweep': False}
@@ -277,7 +278,7 @@ def pnca_GCN_vary_graph(
                 # calc new edge index and edge weights
                 edge_index, d_array = graph._get_protein_struct_edges(graph.nodes.center_of_mass(compound='residues'))
                 edge_dists = graph._gen_edge_dists(edge_index, d_array)
-                edge_attr = graph.calc_edge_weights(edge_weight_func, edge_dists)
+                edge_attr = graph.calc_edge_weights(edge_weight_func, edge_dists, lambda_param)
                 
                 if normalise_ews:
                     edge_attr = graph.process_edge_weights(edge_attr)
@@ -285,7 +286,7 @@ def pnca_GCN_vary_graph(
                 # change edge index and edge weights for Data object
                 graph_dict[sample_set][sample]['graph'].dataset[0].edge_index = edge_index
                 graph_dict[sample_set][sample]['graph'].dataset[0].edge_attr = edge_attr
-                
+        
     train_split, test_split = 0.7, 0.3
     # create dataset list
     full_dataset = []
@@ -391,7 +392,7 @@ def pnca_GCN_vary_graph(
                                                             use_wandb=wandb_params['use_wandb'] or wandb_params['sweep'],
                                                             # early_stop=False
                                                             early_stop={
-                                                                'patience': 20, 
+                                                                'patience': 30, 
                                                                 'min_delta': 0
                                                                 }
                                                             )

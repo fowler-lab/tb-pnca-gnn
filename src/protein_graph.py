@@ -148,7 +148,7 @@ class ProteinGraph():
 
         return x
     
-    def calc_edge_weights(self, function, edge_dist):
+    def calc_edge_weights(self, function, edge_dist, lambda_param=None):
         
         if function == "dist":
             ews = edge_dist
@@ -158,10 +158,14 @@ class ProteinGraph():
             if self.self_loops:
                 raise ValueError("Cannot use '1/dist' edge weights with self loops")
             ews = 1 / edge_dist
+        elif function == "exp":
+            if lambda_param is None:
+                raise ValueError("Lambda parameter must be provided for exponentially decaying edge weights")
+            ews = np.exp(-lambda_param * edge_dist)
         elif function == "none":
             ews = None
         else:
-            raise ValueError(f"Invalid edge weight function {function}, choose from 'dist', '1-(dist/cutoff)', '1/dist', 'none'")
+            raise ValueError(f"Invalid edge weight function {function}, choose from 'dist', '1-(dist/cutoff)', '1/dist', 'exp', 'none'")
         
         return ews
     
