@@ -5,6 +5,7 @@ pdb/train_structures
 pdb/test_structures
 pdb/test_pza
 pdb/train_pza
+dd_pnca/figs
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
