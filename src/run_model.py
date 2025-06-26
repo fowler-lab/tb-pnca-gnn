@@ -227,6 +227,7 @@ def pnca_GCN_vary_graph(
     lambda_param: float = None,
     dropout = 0.5,
     lr_scheduling = False,
+    early_stop = True,
     wandb_params: dict = {'use_wandb': False, 'wandb_project': None, 'wandb_name': None, 'sweep': False}
     ):
     """
@@ -294,7 +295,7 @@ def pnca_GCN_vary_graph(
         full_dataset.append(graph_dict['train'][sample]['graph'].dataset[0])
     for sample in graph_dict['test']:
         full_dataset.append(graph_dict['test'][sample]['graph'].dataset[0])
-    
+    # !!!
     # normalise, column wise for entire dataset
     all_features = torch.cat([data.x for data in full_dataset], dim=0)
     scaler = MinMaxScaler()
@@ -303,7 +304,7 @@ def pnca_GCN_vary_graph(
     # Apply normalization to each graph
     for data in full_dataset:
         data.x = torch.tensor(scaler.transform(data.x.numpy()), dtype=torch.float)
-    
+    # !!!
     # return full_dataset
 
     # Create DataLoaders for train and test set
@@ -390,11 +391,10 @@ def pnca_GCN_vary_graph(
     
     train_acc, test_acc, train_loss, test_loss = gcntrainer.run(epochs=epochs,
                                                             use_wandb=wandb_params['use_wandb'] or wandb_params['sweep'],
-                                                            # early_stop=False
                                                             early_stop={
                                                                 'patience': 30, 
                                                                 'min_delta': 0
-                                                                }
+                                                                } if early_stop else False
                                                             )
     
     # return model, train_acc, test_acc, train_loss, test_loss
