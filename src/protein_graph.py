@@ -202,8 +202,6 @@ class ProteinGraph():
             ews = self.process_edge_weights(ews)
         
         dists_df = self.gen_dist_features(wt_seq)
-        #! hack for alphafold structures: so dists_df can join properly
-        # dists_df = self.gen_dist_features(sequences.allele.values[0][:self.end_length])
             
         for idx,row in tqdm(sequences.iterrows(), total=len(sequences), disable=(len(sequences) == 1)):
             
@@ -229,16 +227,6 @@ class ProteinGraph():
             assert data.validate(raise_on_error=True)
 
             dataset.append(data)
-        
-        #! temp for alphafold structures
-        # # normalise, column wise for entire dataset
-        # all_features = torch.cat([data.x for data in dataset], dim=0)
-        # scaler = MinMaxScaler()
-        # scaler.fit(all_features.numpy())
-        
-        # # Apply normalization to each graph
-        # for data in dataset:
-        #     data.x = torch.tensor(scaler.transform(data.x.numpy()), dtype=torch.float)
         
         self.dataset = dataset
         
