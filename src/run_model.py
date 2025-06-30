@@ -228,6 +228,7 @@ def pnca_GCN_vary_graph(
     dropout = 0.5,
     lr_scheduling = False,
     early_stop = True,
+    save_path: str = None,
     wandb_params: dict = {'use_wandb': False, 'wandb_project': None, 'wandb_name': None, 'sweep': False}
     ):
     """
@@ -391,6 +392,7 @@ def pnca_GCN_vary_graph(
     
     train_acc, test_acc, train_loss, test_loss = gcntrainer.run(epochs=epochs,
                                                             use_wandb=wandb_params['use_wandb'] or wandb_params['sweep'],
+                                                            path=save_path,
                                                             early_stop={
                                                                 'patience': 30, 
                                                                 'min_delta': 0

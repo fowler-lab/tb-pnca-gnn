@@ -117,6 +117,7 @@ class GCNTrainer:
         self, 
         epochs, 
         use_wandb=False,
+        path:str = None,
         early_stop={
             'patience': 20, 
             'min_delta': 0
@@ -135,6 +136,8 @@ class GCNTrainer:
         train_f1 = []
         test_f1 = []
         
+        best_test_f1 = 0.0
+        
         if early_stop:
             patience = early_stop['patience']
             min_delta = early_stop['min_delta']
@@ -146,7 +149,7 @@ class GCNTrainer:
             prev_lr = self.optimizer.param_groups[0]['lr']
             print(f'Initial learning rate: {prev_lr}')
     
-        for epoch in range(1, epochs + 1):
+        for epoch in range(0, epochs):
             
             self.train()
             
@@ -180,6 +183,13 @@ class GCNTrainer:
                     "Test F1": tef1
                     })
             
+            if tef1 > best_test_f1:
+                best_test_f1 = tef1
+                if path:
+                    print('saving model')
+                    torch.save(self.model, f"{path}/{best_test_f1:.3f}_{epoch}.pth")
+                    torch.save(self.model.state_dict(), f"{path}/{best_test_f1:.3f}_{epoch}_dict.pth")
+
             if epoch % 10 == 0:
                 print(f'Epoch: {epoch:03d}, Train Acc: {tracc:.4f}, Test Acc: {teacc:.4f}, Train Loss: {trlss:.4f}, Test Loss: {telss:.4f}')
 
