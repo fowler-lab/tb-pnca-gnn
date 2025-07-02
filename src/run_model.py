@@ -227,7 +227,7 @@ def pnca_GCN_vary_graph(
     lambda_param: float = None,
     dropout = 0.5,
     lr_scheduling = False,
-    early_stop = True,
+    early_stop = False,
     save_path: str = None,
     wandb_params: dict = {'use_wandb': False, 'wandb_project': None, 'wandb_name': None, 'sweep': False}
     ):
@@ -263,7 +263,6 @@ def pnca_GCN_vary_graph(
     Returns:
         model (torch.nn.Module): Trained GCN model
     """
-
     
     if edge_weight_func != 'none':
     # attach edge weights and correct edge index for varying cutoff distance
@@ -285,6 +284,12 @@ def pnca_GCN_vary_graph(
                 if normalise_ews:
                     edge_attr = graph.process_edge_weights(edge_attr)
                 
+                # # shuffle edges
+                # row, col = edge_index
+                # perm = torch.randperm(row.size(0))
+                # edge_index = torch.stack([row, col[perm]], dim=0)
+                # edge_attr = edge_attr[torch.randperm(len(edge_attr))]
+                
                 # change edge index and edge weights for Data object
                 graph_dict[sample_set][sample]['graph'].dataset[0].edge_index = edge_index
                 graph_dict[sample_set][sample]['graph'].dataset[0].edge_attr = edge_attr
@@ -296,17 +301,7 @@ def pnca_GCN_vary_graph(
         full_dataset.append(graph_dict['train'][sample]['graph'].dataset[0])
     for sample in graph_dict['test']:
         full_dataset.append(graph_dict['test'][sample]['graph'].dataset[0])
-    # # !!!
-    # # normalise, column wise for entire dataset
-    # all_features = torch.cat([data.x for data in full_dataset], dim=0)
-    # scaler = MinMaxScaler()
-    # scaler.fit(all_features.numpy())
 
-    # # Apply normalization to each graph
-    # for data in full_dataset:
-    #     data.x = torch.tensor(scaler.transform(data.x.numpy()), dtype=torch.float)
-    # # !!!
-    # return full_dataset
 
     # Create DataLoaders for train and test set
     train_loader,test_loader,val_loader, dataset_dict = gcn_model.load(dataset=full_dataset,

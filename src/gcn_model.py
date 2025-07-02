@@ -7,6 +7,7 @@ from torch_geometric.nn.norm import BatchNorm
 from torch_geometric.loader import DataLoader
 from sklearn.metrics import confusion_matrix, f1_score
 
+import os
 import wandb
 import random
 
@@ -137,6 +138,7 @@ class GCNTrainer:
         test_f1 = []
         
         best_test_f1 = 0.0
+        best_model_path = None
         
         if early_stop:
             patience = early_stop['patience']
@@ -184,11 +186,20 @@ class GCNTrainer:
                     })
             
             if tef1 > best_test_f1:
+                
+                if best_model_path and os.path.exists(best_model_path):
+                    os.remove(best_model_path)
+                    os.remove(f'{best_model_path}'.replace('.pth', '_dict.pth'))
+
                 best_test_f1 = tef1
                 if path:
-                    print('saving model')
-                    torch.save(self.model, f"{path}/{best_test_f1:.3f}_{epoch}.pth")
-                    torch.save(self.model.state_dict(), f"{path}/{best_test_f1:.3f}_{epoch}_dict.pth")
+                    # print('saving model')
+                    os.makedirs(f'{path}', exist_ok=True)
+                    
+                    best_model_path = f"{path}/F1={best_test_f1:.3f}_epoch={epoch}.pth"
+                    
+                    torch.save(self.model, f"{path}/F1={best_test_f1:.3f}_epoch={epoch}.pth")
+                    torch.save(self.model.state_dict(), f"{path}/F1={best_test_f1:.3f}_epoch={epoch}_dict.pth")
 
             if epoch % 10 == 0:
                 print(f'Epoch: {epoch:03d}, Train Acc: {tracc:.4f}, Test Acc: {teacc:.4f}, Train Loss: {trlss:.4f}, Test Loss: {telss:.4f}')
