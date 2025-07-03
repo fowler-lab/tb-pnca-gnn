@@ -96,11 +96,13 @@ def redefine_graph(graph_dict,
             
             if no_node_mpfs:
                 # remove metapredictor features
+                raise NotImplementedError("Need to check which index of tensor to remove")
                 new_node_feats = graph.dataset[0].x[:, :12]
                 graph_dict[sample_set][sample]['graph'].dataset[0].x = new_node_feats
                 
             if no_node_chem_feats:
                 # remove sbmlcore features
+                raise NotImplementedError("Need to check which index of tensor to remove")
                 new_node_feats = graph.dataset[0].x[:, 12:]
                 graph_dict[sample_set][sample]['graph'].dataset[0].x = new_node_feats
                 

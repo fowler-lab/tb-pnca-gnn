@@ -407,7 +407,7 @@ class pncaGraph(ProteinGraph):
         dist = sbmlcore.StructuralDistances(self.pdb, self.lig_selection, 'PZA_dist',dataset_type='amino_acid', infer_masses=False)
         stride = sbmlcore.Stride(self.pdb, dataset_type='amino_acid')
         
-        # # try new feats
+        # try new feats
         depth = sbmlcore.ResidueDepth(self.pdb, segids=['A'])
         fe_dist = sbmlcore.StructuralDistances(self.pdb, 'resname FE2', 'FE2_dist', dataset_type='amino_acid', infer_masses=False)
         temp = sbmlcore.TempFactors(self.pdb)
