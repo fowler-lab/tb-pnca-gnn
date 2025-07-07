@@ -402,20 +402,12 @@ class pncaGraph(ProteinGraph):
         ha = sbmlcore.HBondAcceptors()
         hd = sbmlcore.HBondDonors()
         r = sbmlcore.SideChainRings()
-        
-        # try dist feats
         dist = sbmlcore.StructuralDistances(self.pdb, self.lig_selection, 'PZA_dist',dataset_type='amino_acid', infer_masses=False)
         stride = sbmlcore.Stride(self.pdb, dataset_type='amino_acid')
-        
-        # try new feats
         depth = sbmlcore.ResidueDepth(self.pdb, segids=['A'])
         fe_dist = sbmlcore.StructuralDistances(self.pdb, 'resname FE2', 'FE2_dist', dataset_type='amino_acid', infer_masses=False)
-        temp = sbmlcore.TempFactors(self.pdb)
             
-        features.add_feature([v, h, mw, p, kd, ha, hd, r, dist, stride, 
-                              depth, 
-                              fe_dist, temp
-                              ])
+        features.add_feature([v, h, mw, p, kd, ha, hd, r, dist, stride, depth, fe_dist])
 
         # for col in ['volume', 'hydropathy_WW', 'MW', 'Pi', 'hydropathy_KD', 'h_acceptors', 'h_donors', 'rings']:
         #     features.df[col] = features.df[col].astype('float') 

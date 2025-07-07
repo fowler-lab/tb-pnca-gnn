@@ -73,7 +73,7 @@ def redefine_graph(graph_dict,
             graph = graph_dict[sample_set][sample]['graph']
             
             # assert graph.dataset[0].x.size() == torch.Size([185, 16]), \
-            assert graph.dataset[0].x.size(1) == 16, \
+            assert graph.dataset[0].x.size(1) == 18, \
                 "Reload graph_dict"
                 
             # reset graph attributes based on new cutoff distance

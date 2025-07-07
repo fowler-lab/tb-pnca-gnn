@@ -228,7 +228,7 @@ def pnca_GCN_vary_graph(
     lambda_param: float = None,
     dropout = 0.5,
     lr_scheduling = False,
-    early_stop = False,
+    early_stop = True,
     shuffle_edges = False,
     no_node_mpfs = False,
     no_node_chem_feats = False,
@@ -269,17 +269,17 @@ def pnca_GCN_vary_graph(
         model (torch.nn.Module): Trained GCN model
     """
     
-    if edge_weight_func != 'none':
-        # attach edge weights and correct edge index for varying cutoff distance
-        model_helpers.redefine_graph(graph_dict,
-                        cutoff_distance=cutoff_distance,
-                        edge_weight_func=edge_weight_func,
-                        normalise_ews=normalise_ews,
-                        lambda_param=lambda_param,
-                        no_node_mpfs=no_node_mpfs,
-                        no_node_chem_feats=no_node_chem_feats,
-                        rand_node_feats=rand_node_feats,
-                        shuffle_edges=shuffle_edges)
+    # if edge_weight_func != 'none':
+    #     # attach edge weights and correct edge index for varying cutoff distance
+    #     model_helpers.redefine_graph(graph_dict,
+    #                     cutoff_distance=cutoff_distance,
+    #                     edge_weight_func=edge_weight_func,
+    #                     normalise_ews=normalise_ews,
+    #                     lambda_param=lambda_param,
+    #                     no_node_mpfs=no_node_mpfs,
+    #                     no_node_chem_feats=no_node_chem_feats,
+    #                     rand_node_feats=rand_node_feats,
+    #                     shuffle_edges=shuffle_edges)
 
     train_split, test_split = 0.7, 0.3
     # create dataset list
@@ -376,7 +376,7 @@ def pnca_GCN_vary_graph(
                                                             use_wandb=wandb_params['use_wandb'] or wandb_params['sweep'],
                                                             path=save_path,
                                                             early_stop={
-                                                                'patience': 30, 
+                                                                'patience': 50, 
                                                                 'min_delta': 0
                                                                 } if early_stop else False
                                                             )
