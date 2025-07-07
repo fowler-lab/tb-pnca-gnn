@@ -181,7 +181,6 @@ class ProteinGraph():
     
     def gen_dataset(
         self, 
-        wt_seq, 
         sequences: pd.DataFrame,
         edge_weights: str,
         lambda_param: float = None,
