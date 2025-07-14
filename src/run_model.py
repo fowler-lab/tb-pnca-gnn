@@ -24,8 +24,11 @@ def pnca_simpleGCN(
     dataset: List[Data] = None,
     output_channels: int = 2,
     normalise_ews: bool = True,
+    lambda_param: float = None,
     dropout = 0.5,
     lr_scheduling = False,
+    early_stop = True,
+    save_path: str = None,
     wandb_params: dict = {'use_wandb': False, 'wandb_project': None, 'wandb_name': None, 'sweep': False}
     ):
     """
@@ -105,15 +108,15 @@ def pnca_simpleGCN(
         
         full_dataset = dataset
         
-        if edge_weight_func != 'none':
-        # attach edge weights and correct edge index for varying cutoff distance
+        # if edge_weight_func != 'none':
+        # # attach edge weights and correct edge index for varying cutoff distance
 
-            print(f'Adjusting edge index and attaching edge weights for cutoff distance {cutoff_distance}')
-            for sample in full_dataset:
-                sample.edge_index = pnca.edge_index
-                sample.edge_attr = pnca.calc_edge_weights(edge_weight_func, pnca.edge_dists)
-                if normalise_ews:
-                    sample.edge_attr = pnca.process_edge_weights(sample.edge_attr)
+        #     print(f'Adjusting edge index and attaching edge weights for cutoff distance {cutoff_distance}')
+        #     for sample in full_dataset:
+        #         sample.edge_index = pnca.edge_index
+        #         sample.edge_attr = pnca.calc_edge_weights(edge_weight_func, pnca.edge_dists, lambda_param)
+        #         if normalise_ews:
+        #             sample.edge_attr = pnca.process_edge_weights(sample.edge_attr)
                     
         train_split, test_split = 0.7, 0.3
         
@@ -192,8 +195,8 @@ def pnca_simpleGCN(
             "weight_decay": wd,
             "cutoff_distance": cutoff_distance,
             "self_loops": self_loops,
-            # "n_res": 1,
-            # "n_sus": 1,
+            "lambda_param": lambda_param,
+            "dropout": dropout,
             "n_samples": wandb_params['n_samples'],
             "batch_size": batch_size,
             "epochs": epochs,
@@ -202,11 +205,11 @@ def pnca_simpleGCN(
     
     train_acc, test_acc, train_loss, test_loss = gcntrainer.run(epochs=epochs,
                                                             use_wandb=wandb_params['use_wandb'] or wandb_params['sweep'],
-                                                            # early_stop=False
+                                                            path=save_path,
                                                             early_stop={
                                                                 'patience': 20, 
                                                                 'min_delta': 0
-                                                                }
+                                                                } if early_stop else False,
                                                             )
     
     # return model, train_acc, test_acc, train_loss, test_loss
@@ -270,16 +273,18 @@ def pnca_GCN_vary_graph(
     """
     
     # if edge_weight_func != 'none':
-    #     # attach edge weights and correct edge index for varying cutoff distance
-    #     model_helpers.redefine_graph(graph_dict,
-    #                     cutoff_distance=cutoff_distance,
-    #                     edge_weight_func=edge_weight_func,
-    #                     normalise_ews=normalise_ews,
-    #                     lambda_param=lambda_param,
-    #                     no_node_mpfs=no_node_mpfs,
-    #                     no_node_chem_feats=no_node_chem_feats,
-    #                     rand_node_feats=rand_node_feats,
-    #                     shuffle_edges=shuffle_edges)
+        # attach edge weights and correct edge index for varying cutoff distance
+    if shuffle_edges or no_node_mpfs or no_node_chem_feats or rand_node_feats:
+        # redefine graph_dict
+        model_helpers.redefine_graph(graph_dict,
+                        cutoff_distance=cutoff_distance,
+                        edge_weight_func=edge_weight_func,
+                        normalise_ews=normalise_ews,
+                        lambda_param=lambda_param,
+                        no_node_mpfs=no_node_mpfs,
+                        no_node_chem_feats=no_node_chem_feats,
+                        rand_node_feats=rand_node_feats,
+                        shuffle_edges=shuffle_edges)
 
     train_split, test_split = 0.7, 0.3
     # create dataset list

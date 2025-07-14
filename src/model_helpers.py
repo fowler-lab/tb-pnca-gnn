@@ -76,34 +76,42 @@ def redefine_graph(graph_dict,
             assert graph.dataset[0].x.size(1) == 18, \
                 "Reload graph_dict"
                 
-            # reset graph attributes based on new cutoff distance
-            graph.cutoff_distance = cutoff_distance
+            # # reset graph attributes based on new cutoff distance
+            # graph.cutoff_distance = cutoff_distance
             
-            # calc new edge index and edge weights
-            edge_index, d_array = graph._get_protein_struct_edges(graph.nodes.center_of_mass(compound='residues'))
-            edge_dists = graph._gen_edge_dists(edge_index, d_array)
-            edge_attr = graph.calc_edge_weights(edge_weight_func, edge_dists, lambda_param)
+            # # calc new edge index and edge weights
+            # edge_index, d_array = graph._get_protein_struct_edges(graph.nodes.center_of_mass(compound='residues'))
+            # edge_dists = graph._gen_edge_dists(edge_index, d_array)
+            # edge_attr = graph.calc_edge_weights(edge_weight_func, edge_dists, lambda_param)
             
-            if normalise_ews:
-                edge_attr = graph.process_edge_weights(edge_attr)
+            # if normalise_ews:
+            #     edge_attr = graph.process_edge_weights(edge_attr)
             
             if shuffle_edges:
                 # shuffle edges
-                row, col = edge_index
-                perm = torch.randperm(row.size(0))
+                g = torch.Generator()
+                g.manual_seed(42)
+                
+                row, col = graph.edge_index
+                perm = torch.randperm(row.size(0), generator=g)
                 edge_index = torch.stack([row, col[perm]], dim=0)
-                edge_attr = edge_attr[torch.randperm(len(edge_attr))]
-            
+                
+                edge_attr = graph.dataset[0].edge_attr[torch.randperm(len(graph.dataset[0].edge_attr), generator=g)]
+
+                # change edge index and edge weights for Data object
+                graph_dict[sample_set][sample]['graph'].dataset[0].edge_index = edge_index
+                graph_dict[sample_set][sample]['graph'].dataset[0].edge_attr = edge_attr
+                
             if no_node_mpfs:
                 # remove metapredictor features
-                raise NotImplementedError("Need to check which index of tensor to remove")
-                new_node_feats = graph.dataset[0].x[:, :12]
+                # raise NotImplementedError("Need to check which index of tensor to remove")
+                new_node_feats = graph.dataset[0].x[:, :14]
                 graph_dict[sample_set][sample]['graph'].dataset[0].x = new_node_feats
                 
             if no_node_chem_feats:
                 # remove sbmlcore features
-                raise NotImplementedError("Need to check which index of tensor to remove")
-                new_node_feats = graph.dataset[0].x[:, 12:]
+                # raise NotImplementedError("Need to check which index of tensor to remove")
+                new_node_feats = graph.dataset[0].x[:, 14:]
                 graph_dict[sample_set][sample]['graph'].dataset[0].x = new_node_feats
                 
             if rand_node_feats:
@@ -113,7 +121,7 @@ def redefine_graph(graph_dict,
                 new_node_feats = torch.rand((num_nodes, num_features))
                 graph_dict[sample_set][sample]['graph'].dataset[0].x = new_node_feats
                 
-            # change edge index and edge weights for Data object
-            graph_dict[sample_set][sample]['graph'].dataset[0].edge_index = edge_index
-            graph_dict[sample_set][sample]['graph'].dataset[0].edge_attr = edge_attr
+            # # change edge index and edge weights for Data object
+            # graph_dict[sample_set][sample]['graph'].dataset[0].edge_index = edge_index
+            # graph_dict[sample_set][sample]['graph'].dataset[0].edge_attr = edge_attr
     
