@@ -54,7 +54,7 @@ def redefine_graph(graph_dict,
     assert sum([no_node_mpfs, no_node_chem_feats, rand_node_feats]) <= 1, \
         "Can only set one of no_node_mpfs, no_node_chem_feats, or rand_node_feats to be True"
 
-    print(f'Adjusting edge index and attaching edge weights for cutoff distance {cutoff_distance}')
+    # print(f'Adjusting edge index and attaching edge weights for cutoff distance {cutoff_distance}')
 
     if shuffle_edges:
         print('Shuffling edges')
