@@ -1,11 +1,12 @@
-import sbmlsim
-from src.protein_graph import pncaGraph
 import wandb
-import src.gcn_model as gcn_model
-import torch
 import pandas as pd
+import torch
 from torch_geometric.data import Data
 from sklearn.preprocessing import MinMaxScaler
+
+import src.gcn_model as gcn_model
+from src.protein_graph import pncaGraph
+import src.model_helpers as model_helpers
 
 from typing import Union, List
 
@@ -23,8 +24,11 @@ def pnca_simpleGCN(
     dataset: List[Data] = None,
     output_channels: int = 2,
     normalise_ews: bool = True,
+    lambda_param: float = None,
     dropout = 0.5,
     lr_scheduling = False,
+    early_stop = True,
+    save_path: str = None,
     wandb_params: dict = {'use_wandb': False, 'wandb_project': None, 'wandb_name': None, 'sweep': False}
     ):
     """
@@ -104,15 +108,15 @@ def pnca_simpleGCN(
         
         full_dataset = dataset
         
-        if edge_weight_func != 'none':
-        # attach edge weights and correct edge index for varying cutoff distance
+        # if edge_weight_func != 'none':
+        # # attach edge weights and correct edge index for varying cutoff distance
 
-            print(f'Adjusting edge index and attaching edge weights for cutoff distance {cutoff_distance}')
-            for sample in full_dataset:
-                sample.edge_index = pnca.edge_index
-                sample.edge_attr = pnca.calc_edge_weights(edge_weight_func, pnca.edge_dists)
-                if normalise_ews:
-                    sample.edge_attr = pnca.process_edge_weights(sample.edge_attr)
+        #     print(f'Adjusting edge index and attaching edge weights for cutoff distance {cutoff_distance}')
+        #     for sample in full_dataset:
+        #         sample.edge_index = pnca.edge_index
+        #         sample.edge_attr = pnca.calc_edge_weights(edge_weight_func, pnca.edge_dists, lambda_param)
+        #         if normalise_ews:
+        #             sample.edge_attr = pnca.process_edge_weights(sample.edge_attr)
                     
         train_split, test_split = 0.7, 0.3
         
@@ -191,8 +195,8 @@ def pnca_simpleGCN(
             "weight_decay": wd,
             "cutoff_distance": cutoff_distance,
             "self_loops": self_loops,
-            # "n_res": 1,
-            # "n_sus": 1,
+            "lambda_param": lambda_param,
+            "dropout": dropout,
             "n_samples": wandb_params['n_samples'],
             "batch_size": batch_size,
             "epochs": epochs,
@@ -201,11 +205,11 @@ def pnca_simpleGCN(
     
     train_acc, test_acc, train_loss, test_loss = gcntrainer.run(epochs=epochs,
                                                             use_wandb=wandb_params['use_wandb'] or wandb_params['sweep'],
-                                                            # early_stop=False
+                                                            path=save_path,
                                                             early_stop={
                                                                 'patience': 20, 
                                                                 'min_delta': 0
-                                                                }
+                                                                } if early_stop else False,
                                                             )
     
     # return model, train_acc, test_acc, train_loss, test_loss
@@ -224,8 +228,15 @@ def pnca_GCN_vary_graph(
     graph_dict: dict ,
     output_channels: int = 2,
     normalise_ews: bool = True,
+    lambda_param: float = None,
     dropout = 0.5,
     lr_scheduling = False,
+    early_stop = True,
+    shuffle_edges = False,
+    no_node_mpfs = False,
+    no_node_chem_feats = False,
+    rand_node_feats = False,
+    save_path: str = None,
     wandb_params: dict = {'use_wandb': False, 'wandb_project': None, 'wandb_name': None, 'sweep': False}
     ):
     """
@@ -260,32 +271,21 @@ def pnca_GCN_vary_graph(
     Returns:
         model (torch.nn.Module): Trained GCN model
     """
-
     
-    if edge_weight_func != 'none':
-    # attach edge weights and correct edge index for varying cutoff distance
+    # if edge_weight_func != 'none':
+        # attach edge weights and correct edge index for varying cutoff distance
+    if shuffle_edges or no_node_mpfs or no_node_chem_feats or rand_node_feats:
+        # redefine graph_dict
+        model_helpers.redefine_graph(graph_dict,
+                        cutoff_distance=cutoff_distance,
+                        edge_weight_func=edge_weight_func,
+                        normalise_ews=normalise_ews,
+                        lambda_param=lambda_param,
+                        no_node_mpfs=no_node_mpfs,
+                        no_node_chem_feats=no_node_chem_feats,
+                        rand_node_feats=rand_node_feats,
+                        shuffle_edges=shuffle_edges)
 
-        print(f'Adjusting edge index and attaching edge weights for cutoff distance {cutoff_distance}')
-        
-        for sample_set in graph_dict:
-            for sample in graph_dict[sample_set]:
-                graph = graph_dict[sample_set][sample]['graph']
-                
-                # reset graph attributes based on new cutoff distance
-                graph.cutoff_distance = cutoff_distance
-                
-                # calc new edge index and edge weights
-                edge_index, d_array = graph._get_protein_struct_edges(graph.nodes.center_of_mass(compound='residues'))
-                edge_dists = graph._gen_edge_dists(edge_index, d_array)
-                edge_attr = graph.calc_edge_weights(edge_weight_func, edge_dists)
-                
-                if normalise_ews:
-                    edge_attr = graph.process_edge_weights(edge_attr)
-                
-                # change edge index and edge weights for Data object
-                graph_dict[sample_set][sample]['graph'].dataset[0].edge_index = edge_index
-                graph_dict[sample_set][sample]['graph'].dataset[0].edge_attr = edge_attr
-                
     train_split, test_split = 0.7, 0.3
     # create dataset list
     full_dataset = []
@@ -293,17 +293,7 @@ def pnca_GCN_vary_graph(
         full_dataset.append(graph_dict['train'][sample]['graph'].dataset[0])
     for sample in graph_dict['test']:
         full_dataset.append(graph_dict['test'][sample]['graph'].dataset[0])
-    
-    # normalise, column wise for entire dataset
-    all_features = torch.cat([data.x for data in full_dataset], dim=0)
-    scaler = MinMaxScaler()
-    scaler.fit(all_features.numpy())
 
-    # Apply normalization to each graph
-    for data in full_dataset:
-        data.x = torch.tensor(scaler.transform(data.x.numpy()), dtype=torch.float)
-    
-    # return full_dataset
 
     # Create DataLoaders for train and test set
     train_loader,test_loader,val_loader, dataset_dict = gcn_model.load(dataset=full_dataset,
@@ -379,8 +369,8 @@ def pnca_GCN_vary_graph(
             "weight_decay": wd,
             "cutoff_distance": cutoff_distance,
             "self_loops": self_loops,
-            # "n_res": 1,
-            # "n_sus": 1,
+            "lambda_param": lambda_param,
+            "dropout": dropout,
             "n_samples": wandb_params['n_samples'],
             "batch_size": batch_size,
             "epochs": epochs,
@@ -389,11 +379,11 @@ def pnca_GCN_vary_graph(
     
     train_acc, test_acc, train_loss, test_loss = gcntrainer.run(epochs=epochs,
                                                             use_wandb=wandb_params['use_wandb'] or wandb_params['sweep'],
-                                                            # early_stop=False
+                                                            path=save_path,
                                                             early_stop={
-                                                                'patience': 20, 
+                                                                'patience': 50, 
                                                                 'min_delta': 0
-                                                                }
+                                                                } if early_stop else False
                                                             )
     
     # return model, train_acc, test_acc, train_loss, test_loss

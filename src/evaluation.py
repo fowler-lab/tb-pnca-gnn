@@ -1,9 +1,9 @@
 import torch
 from matplotlib import pyplot as plt
-from sklearn.metrics import precision_score, recall_score, precision_recall_curve, roc_curve, roc_auc_score
+from sklearn.metrics import precision_score, recall_score, f1_score, precision_recall_curve, roc_curve, roc_auc_score, confusion_matrix
 import numpy as np
 
-def calculate_sens_spec(model, data_loader):
+def calculate_metrics(model, data_loader):
     eval_model = model.to('cpu')
     eval_model.eval()
 
@@ -37,12 +37,16 @@ def calculate_sens_spec(model, data_loader):
     
     sensitivity = recall_score(y_trues, y_preds)
     specificity = recall_score(y_trues, y_preds, pos_label=0)
-    
-    print(f"Sensitivity: {sensitivity:.2f}")
-    print(f"Specificity: {specificity:.2f}")
-    
-    return sensitivity, specificity
-    
+    f1 = f1_score(y_trues, y_preds)
+    cm = confusion_matrix(y_trues, y_preds)
+
+    print(f"Sensitivity: {sensitivity:.3f}")
+    print(f"Specificity: {specificity:.3f}")
+    print(f"F1 Score: {f1:.3f}")
+    print(f"Confusion Matrix:\n{cm}")
+
+    return sensitivity, specificity, f1, cm
+
 
 def calculate_roc(model, data_loader):
     eval_model = model.to('cpu')

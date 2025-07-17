@@ -4,6 +4,7 @@ from MDAnalysis.analysis.distances import distance_array
 import numpy as np
 import torch
 import sbmlcore
+from pandas.api.types import is_numeric_dtype, is_bool_dtype
 from sklearn.preprocessing import MinMaxScaler
 from tqdm import tqdm
 from torch_geometric.data import Data, HeteroData
@@ -148,7 +149,7 @@ class ProteinGraph():
 
         return x
     
-    def calc_edge_weights(self, function, edge_dist):
+    def calc_edge_weights(self, function, edge_dist, lambda_param=None):
         
         if function == "dist":
             ews = edge_dist
@@ -158,10 +159,14 @@ class ProteinGraph():
             if self.self_loops:
                 raise ValueError("Cannot use '1/dist' edge weights with self loops")
             ews = 1 / edge_dist
+        elif function == "exp":
+            if lambda_param is None:
+                raise ValueError("Lambda parameter must be provided for exponentially decaying edge weights")
+            ews = np.exp(-lambda_param * edge_dist)
         elif function == "none":
             ews = None
         else:
-            raise ValueError(f"Invalid edge weight function {function}, choose from 'dist', '1-(dist/cutoff)', '1/dist', 'none'")
+            raise ValueError(f"Invalid edge weight function {function}, choose from 'dist', '1-(dist/cutoff)', '1/dist', 'exp', 'none'")
         
         return ews
     
@@ -176,9 +181,9 @@ class ProteinGraph():
     
     def gen_dataset(
         self, 
-        wt_seq, 
         sequences: pd.DataFrame,
         edge_weights: str,
+        lambda_param: float = None,
         normalise: bool = True
         ):
         """_summary_
@@ -192,14 +197,12 @@ class ProteinGraph():
         
         dataset = []
         
-        ews = self.calc_edge_weights(edge_weights, self.edge_dists)
+        ews = self.calc_edge_weights(edge_weights, self.edge_dists, lambda_param=lambda_param)
         
         if normalise and edge_weights != 'none':
             ews = self.process_edge_weights(ews)
         
-        dists_df = self.gen_dist_features(wt_seq)
-        #! hack for alphafold structures: so dists_df can join properly
-        # dists_df = self.gen_dist_features(sequences.allele.values[0][:self.end_length])
+        # dists_df = self.gen_dist_features(wt_seq)
             
         for idx,row in tqdm(sequences.iterrows(), total=len(sequences), disable=(len(sequences) == 1)):
             
@@ -208,7 +211,9 @@ class ProteinGraph():
             else:
                 resids = self.build_resids(row.allele)
             
-            x = self.build_feature_dataframe(resids, dists_dataset = dists_df)
+            x = self.build_feature_dataframe(resids, 
+                                            #  dists_dataset = dists_df
+                                             )
             
             y = torch.tensor(1 if row.phenotype_label == "R" else 0)
             
@@ -225,16 +230,6 @@ class ProteinGraph():
             assert data.validate(raise_on_error=True)
 
             dataset.append(data)
-        
-        #! temp for alphafold structures
-        # # normalise, column wise for entire dataset
-        # all_features = torch.cat([data.x for data in dataset], dim=0)
-        # scaler = MinMaxScaler()
-        # scaler.fit(all_features.numpy())
-        
-        # # Apply normalization to each graph
-        # for data in dataset:
-        #     data.x = torch.tensor(scaler.transform(data.x.numpy()), dtype=torch.float)
         
         self.dataset = dataset
         
@@ -389,7 +384,10 @@ class pncaGraph(ProteinGraph):
         
         return dists_dataset.df
     
-    def build_feature_dataframe(self, resids, dists_dataset=None):
+    def build_feature_dataframe(self, 
+                                resids, 
+                                # dists_dataset=None
+                                ):
         
         df = pd.DataFrame(resids, columns=['segid', 'amino_acid', 'resid'])
 
@@ -403,18 +401,30 @@ class pncaGraph(ProteinGraph):
         ha = sbmlcore.HBondAcceptors()
         hd = sbmlcore.HBondDonors()
         r = sbmlcore.SideChainRings()
+        dist = sbmlcore.StructuralDistances(self.pdb, self.lig_selection, 'PZA_dist',dataset_type='amino_acid', infer_masses=False)
+        stride = sbmlcore.Stride(self.pdb, dataset_type='amino_acid')
+        depth = sbmlcore.ResidueDepth(self.pdb, segids=['A'])
+        fe_dist = sbmlcore.StructuralDistances(self.pdb, 'resname FE2', 'FE2_dist', dataset_type='amino_acid', infer_masses=False)
+            
+        features.add_feature([v, h, mw, p, kd, ha, hd, r, dist, stride, depth, fe_dist])
 
-        features.add_feature([v, h, mw, p, kd, ha, hd, r])
+        # for col in ['volume', 'hydropathy_WW', 'MW', 'Pi', 'hydropathy_KD', 'h_acceptors', 'h_donors', 'rings']:
+        #     features.df[col] = features.df[col].astype('float') 
 
-        for col in ['volume', 'hydropathy_WW', 'MW', 'Pi', 'hydropathy_KD', 'h_acceptors', 'h_donors', 'rings']:
-            features.df[col] = features.df[col].astype('float') 
+        features.df.drop(columns=['n_hbond_acceptors', 'n_hbond_donors'], inplace=True)
 
-        # Add PZA_dist to the features
-        if dists_dataset is not None:
-                features.df.set_index(['segid', 'resid'], inplace=True)
-                features.df = features.df.join(dists_dataset[['PZA_dist', 'phi', 'psi', 'residue_sasa']], on=['segid', 'resid'], how='inner')
-                features.df.reset_index(inplace=True)
-                features.df['PZA_dist'] = features.df['PZA_dist'].astype('float') 
+        for col in features.df.columns:
+            if is_numeric_dtype(features.df[col]) and not is_bool_dtype(features.df[col]) and col != 'resid':
+                features.df[col] = features.df[col].astype('float') 
+            elif col not in ['resid', 'segid', 'amino_acid']:
+                features.df.drop(columns=col, inplace=True)
+                
+        # # Add PZA_dist to the features
+        # if dists_dataset is not None:
+        #         features.df.set_index(['segid', 'resid'], inplace=True)
+        #         features.df = features.df.join(dists_dataset[['PZA_dist', 'phi', 'psi', 'residue_sasa']], on=['segid', 'resid'], how='inner')
+        #         features.df.reset_index(inplace=True)
+        #         features.df['PZA_dist'] = features.df['PZA_dist'].astype('float') 
         
         features.df = self.add_mutation_features(features.df)
         
