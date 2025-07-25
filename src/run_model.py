@@ -9,21 +9,21 @@ import src.model_helpers as model_helpers
 from typing import Union, List
 
 def _run_pnca_gcn_training(
-    full_dataset,
-    num_node_features,
-    hidden_channels,
-    output_channels,
-    dropout,
-    batch_size,
-    train_split,
-    test_split,
-    learning_rate,
-    wd,
-    epochs,
-    lr_scheduling,
-    early_stop,
-    save_path,
-    wandb_params
+    full_dataset: List[Data],
+    num_node_features: int,
+    hidden_channels: int,
+    output_channels: int,
+    dropout: float,
+    batch_size: int,
+    train_split: float,
+    test_split: float,
+    learning_rate: float,
+    wd: float,
+    epochs: int,
+    lr_scheduling: bool,
+    early_stop: bool,
+    save_path: str,
+    wandb_params: dict
 ):
     """
     Helper to set up dataloaders, model, optimizer, scheduler, trainer, and run training.
