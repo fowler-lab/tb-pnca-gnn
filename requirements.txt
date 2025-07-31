@@ -1,24 +1,17 @@
-GitPython==3.1.42
-graphviz==0.20.3
 gumpy==1.2.6
 ipykernel==6.27.1
 ipython==8.18.1
 matplotlib==3.8.2
-matplotlib-inline==0.1.6
 MDAnalysis==2.7.0
-networkx==3.2.1
 numpy==1.26.2
 pandas==2.2.2
-piezo==0.7.1
-rdkit==2024.3.4
 sbmlcore==0.2.8
-sbmlsim @ git+ssh://git@github.com/fowler-lab/sbmlsim.git
 scikit-learn==1.4.0
 scipy==1.11.4
 seaborn==0.13.2
 torch==2.4.1
 torch_geometric==2.5.3
-torchaudio==2.4.1
-torchvision==0.19.1
 tqdm==4.66.1
 wandb==0.16.4
+biopython==1.83
+statsmodels==0.14.1

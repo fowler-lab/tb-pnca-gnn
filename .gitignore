@@ -1,6 +1,5 @@
 dd_pnca/wandb/
 dd_pnca/datasets
-dd_pnca/figs
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
