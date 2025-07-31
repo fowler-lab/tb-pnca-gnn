@@ -1,5 +1,5 @@
-dd_pnca/wandb/
-dd_pnca/datasets
+notebooks/wandb/
+notebooks/datasets
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
