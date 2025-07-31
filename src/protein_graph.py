@@ -12,7 +12,7 @@ from src.model_helpers import convert_3letter_to_sequence
 
 class ProteinGraph():
     """
-    Class for BlaC protein graph construction.
+    Class for toy example of protein graph construction.
     """
     
     def __init__(
@@ -20,7 +20,7 @@ class ProteinGraph():
         pdb: str, 
         lig_resname: str, 
         self_loops: bool, 
-        cutoff_distance = 5.6,
+        cutoff_distance: float,
         end_length = False
         ):
         
@@ -106,7 +106,7 @@ class ProteinGraph():
         
         dists_dataset.add_feature(dist)
 
-        # Botch the distance for 1st res (A) to match the distance for the first M 
+        # fix the distance for 1st res (A) to match the distance for the first M 
         dists_dataset.df.loc[0, 'CLAV_dist'] = dist.results.loc[0, 'CLAV_dist']
         dists_dataset.df.set_index(['segid','resid'],inplace=True)
         
@@ -133,7 +133,7 @@ class ProteinGraph():
         for col in ['volume', 'hydropathy_WW', 'MW', 'Pi', 'hydropathy_KD', 'h_acceptors', 'h_donors', 'rings']:
             features.df[col] = features.df[col].astype('float') 
 
-        # Add CLAV_dist to the features
+        # add CLAV_dist to the features
         if dists_dataset is not None:
             features.df.set_index(['segid', 'resid'], inplace=True)
             features.df = features.df.join(dists_dataset[['CLAV_dist']], on=['segid', 'resid'], how='inner')
@@ -221,7 +221,6 @@ class ProteinGraph():
                         edge_index=self.edge_index,
                         edge_attr=ews, 
                         y=y, 
-                        # device="cuda" if torch.cuda.is_available() else "mps"
                         )
 
             # if torch.cuda.is_available():
@@ -329,28 +328,20 @@ class ProteinGraph():
         
 class pncaGraph(ProteinGraph):
     """
-    Class for PncA protein graph construction. Inherits from ProteinGraph (BlaC graph class).
+    Class for PncA protein graph construction. Inherits from ProteinGraph (Toy example graph class).
     """
     def __init__(
         self, 
         pdb: str,
         lig_resname: str, 
         self_loops: bool,
-        # lig_pdb: str = None, #! temp arg to use coordinates for CLAV bound to WT 
-        cutoff_distance = 5.6
+        cutoff_distance: float
         ):
         
         self.end_length = 185
         
         super().__init__(pdb, lig_resname, self_loops, cutoff_distance, self.end_length)
-        
-        # # temp code
-        # if lig_pdb is None:
-        #     self.lig_pdb = self.pdb
-        # else:
-        #     self.lig_pdb = lig_pdb
-        # # temp code
-        
+ 
         self.lig_selection = f'resname {self.lig_resname}'
             
     def _get_protein_struct_nodes(self):
@@ -408,9 +399,6 @@ class pncaGraph(ProteinGraph):
             
         features.add_feature([v, h, mw, p, kd, ha, hd, r, dist, stride, depth, fe_dist])
 
-        # for col in ['volume', 'hydropathy_WW', 'MW', 'Pi', 'hydropathy_KD', 'h_acceptors', 'h_donors', 'rings']:
-        #     features.df[col] = features.df[col].astype('float') 
-
         features.df.drop(columns=['n_hbond_acceptors', 'n_hbond_donors'], inplace=True)
 
         for col in features.df.columns:
@@ -431,8 +419,7 @@ class pncaGraph(ProteinGraph):
         features.df = features.df.sort_values(by='resid', ascending=True)
         
         x = np.array(features.df)[:,3:]
-        # transformer = MinMaxScaler().fit(x)
-        # x = transformer.transform(x)
+
         x = torch.tensor(x.tolist(), dtype=torch.float)
 
         return x
@@ -448,7 +435,7 @@ class ProteinLigandGraph(ProteinGraph):
         pdb: str, 
         lig_resname: str, 
         self_loops: bool, 
-        cutoff_distance = 5.6
+        cutoff_distance: float
         ):
         
         super().__init__(pdb, lig_resname, self_loops, cutoff_distance)
