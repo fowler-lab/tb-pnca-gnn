@@ -5,7 +5,7 @@ A graph convolutional neural network (GCN) for predicting Pyrazinamide (PZA) res
 ## Overview
 
 This project implements a Graph Convolutional Network to predict antimicrobial resistance by modeling protein structures as graphs. The model uses protein structure graphs and node features including amino acid properties and structural features.
-
+<!-- 
 ## Model Architecture
 
 The GCN uses:
@@ -19,4 +19,4 @@ The GCN uses:
 The model achieves:
 - **F1 Score**: 0.816 on Test dataset
 - **Binary classification** of pyrazinamide resistance/susceptibility
-- **Interpretable predictions** through GNN explainability
+- **Interpretable predictions** through GNN explainability -->
