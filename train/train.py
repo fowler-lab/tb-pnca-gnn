@@ -1,4 +1,6 @@
 import os
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+
 import sys
 import random
 import numpy as np
@@ -8,6 +10,7 @@ import warnings
 import yaml
 import argparse
 import wandb
+import gc
 from omegaconf import OmegaConf
 
 path = os.path.join('..', '.')
@@ -101,12 +104,11 @@ def main():
 
         def sweep_train():
             with wandb.init() as run:
-                # Merge base config with wandb sweep config (sweep overrides base)
-                # wandb.config contains the parameters selected by the sweep agent
                 run_config = {**config, **wandb.config}
-                
-                # Ensure the local config variable used for training uses the merged parameters
                 train(run_config, graph_dict)
+
+            torch.cuda.empty_cache()
+            gc.collect()
 
         print("Starting wandb agent...")
         wandb.agent(sweep_id, function=sweep_train, count=args.count)
