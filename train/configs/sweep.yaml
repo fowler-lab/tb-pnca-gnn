@@ -5,8 +5,8 @@ metric:
   goal: maximize
 parameters:
   learning_rate:
-    min: 1e-5
-    max: 1e-3
+    min: 1e-6
+    max: 1e-5
   batch_size:
     values: [128, 256, 512]
   hidden_channels:

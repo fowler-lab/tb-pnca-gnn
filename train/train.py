@@ -25,7 +25,7 @@ def load_config(config_path):
     return cfg
 
 
-def train(config, graph_dict):
+def train(config, graph_dict, wandb_run_name=None):
     """Run a single training run with the given config."""
     n_samples = len(graph_dict['train']) + len(graph_dict['test'])
 
@@ -61,7 +61,7 @@ def train(config, graph_dict):
         lambda_param = edge_weight_lambda,
         early_stop = config.get('early_stop', False),
         recreate_graph = config.get('recreate_graph', False),
-        save_path = config.get('save_path', None),
+        save_path = f'{config.get("save_path", None)}/{wandb_run_name}' if wandb_run_name else config.get('save_path', None),
         wandb_params = {
             'use_wandb': config.get('use_wandb', True),
             'wandb_project': project,
@@ -105,7 +105,7 @@ def main():
         def sweep_train():
             with wandb.init() as run:
                 run_config = {**config, **wandb.config}
-                train(run_config, graph_dict)
+                train(run_config, graph_dict, run.name)
 
             torch.cuda.empty_cache()
             gc.collect()
@@ -120,4 +120,6 @@ def main():
 if __name__ == "__main__":
     warnings.filterwarnings('ignore')
     print('CUDA available:', torch.cuda.is_available())
+    if wandb.run is not None:
+        wandb.finish()
     main()
