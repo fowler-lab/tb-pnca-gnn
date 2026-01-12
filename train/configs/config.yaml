@@ -1,12 +1,12 @@
 # Config for train.py
 
-project: pnca-clustered-split
-run_name: codon-split-long
-dataset_path: datasets/codon_graph_dict.pkl
+project: pnca-codon-split-sweep
+run_name: codon-split-sweep
+dataset_path: ../notebooks/datasets/codon_graph_dict.pkl
 
 seed: 42
 use_wandb: true
-sweep: false
+sweep: true
 save_path: "../saved_models/${project}/${run_name}"
 
 cutoff_distance: 12
@@ -19,6 +19,7 @@ edge_weight_lambda: 2
 learning_rate: 4e-5
 weight_decay: 5e-6
 epochs: 2000
+# epochs: 50
 self_loops: false
 lr_scheduling: false
 normalise_ews: true

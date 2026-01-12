@@ -1,4 +1,4 @@
-# Example sweep.yaml for wandb sweep
+# sweep config for wandb sweep
 method: random
 metric:
   name: Test F1
@@ -16,11 +16,9 @@ parameters:
     max: 0.7
   edge_weight_lambda:
     min: 0.5
-    max: 4
+    max: 4.0
   cutoff_distance:
-    values: [8, 10, 12, 14]
-  epochs:
-    value: 2000
+    values: [6, 8, 10, 12, 14]
   edge_weight_func:
     value: "exp"
   weight_decay:

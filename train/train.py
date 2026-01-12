@@ -1,3 +1,5 @@
+import os
+import sys
 import random
 import numpy as np
 import pickle as pkl
@@ -7,6 +9,11 @@ import yaml
 import argparse
 import wandb
 from omegaconf import OmegaConf
+
+path = os.path.join('..', '.')
+if path not in sys.path:
+    sys.path.append(os.path.abspath(path))
+
 from src import run_model
 
 
@@ -67,9 +74,11 @@ def main():
     parser = argparse.ArgumentParser(description="Train GCN model with YAML config.")
     parser.add_argument('--config', type=str, default='config.yaml', help='Path to config YAML file')
     parser.add_argument('--sweep_config', type=str, default=None, help='Path to sweep config YAML file (required if sweep: true in config)')
+    parser.add_argument('--count', type=int, default=None, help='Number of runs to execute in the sweep')
     args = parser.parse_args()
 
     config = load_config(args.config)
+    config = OmegaConf.to_container(config, resolve=True)
 
     # Set seed
     seed = config.get('seed', 42)
@@ -86,6 +95,7 @@ def main():
         if args.sweep_config is None:
             raise ValueError("--sweep_config is required when sweep: true in config.yaml")
         sweep_config = load_config(args.sweep_config)
+        sweep_config = OmegaConf.to_container(sweep_config, resolve=True)
         sweep_id = wandb.sweep(sweep=sweep_config, project=config['project'])
         print(f"Initialized sweep with ID: {sweep_id}")
 
@@ -99,7 +109,7 @@ def main():
                 train(run_config, graph_dict)
 
         print("Starting wandb agent...")
-        wandb.agent(sweep_id, function=sweep_train)
+        wandb.agent(sweep_id, function=sweep_train, count=args.count)
     else:
         # Normal training
         train(config, graph_dict)

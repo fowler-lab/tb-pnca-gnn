@@ -87,7 +87,7 @@ def _run_pnca_gcn_training(
         epochs=epochs,
         use_wandb=wandb_params.get('use_wandb', False) or wandb_params.get('sweep', False),
         path=save_path,
-        early_stop={'patience': 20, 'min_delta': 0} if early_stop else False
+        early_stop={'patience': 50, 'min_delta': 0} if early_stop else False
     )
 
     return model
