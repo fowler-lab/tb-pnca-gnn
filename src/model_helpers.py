@@ -54,7 +54,7 @@ def redefine_graph(graph_dict,
     assert sum([no_node_mpfs, no_node_chem_feats, rand_node_feats]) <= 1, \
         "Can only set one of no_node_mpfs, no_node_chem_feats, or rand_node_feats to be True"
 
-    # print(f'Adjusting edge index and attaching edge weights for cutoff distance {cutoff_distance}')
+    print(f'Adjusting edge index and attaching edge weights for cutoff distance {cutoff_distance}')
 
     if shuffle_edges:
         print('Shuffling edges')
@@ -76,16 +76,16 @@ def redefine_graph(graph_dict,
             assert graph.dataset[0].x.size(1) == 18, \
                 "Reload graph_dict"
                 
-            # # reset graph attributes based on new cutoff distance
-            # graph.cutoff_distance = cutoff_distance
+            # reset graph attributes based on new cutoff distance
+            graph.cutoff_distance = cutoff_distance
             
-            # # calc new edge index and edge weights
-            # edge_index, d_array = graph._get_protein_struct_edges(graph.nodes.center_of_mass(compound='residues'))
-            # edge_dists = graph._gen_edge_dists(edge_index, d_array)
-            # edge_attr = graph.calc_edge_weights(edge_weight_func, edge_dists, lambda_param)
+            # calc new edge index and edge weights
+            edge_index, d_array = graph._get_protein_struct_edges(graph.nodes.center_of_mass(compound='residues'))
+            edge_dists = graph._gen_edge_dists(edge_index, d_array)
+            edge_attr = graph.calc_edge_weights(edge_weight_func, edge_dists, lambda_param)
             
-            # if normalise_ews:
-            #     edge_attr = graph.process_edge_weights(edge_attr)
+            if normalise_ews:
+                edge_attr = graph.process_edge_weights(edge_attr)
             
             if shuffle_edges:
                 # shuffle edges
@@ -121,7 +121,7 @@ def redefine_graph(graph_dict,
                 new_node_feats = torch.rand((num_nodes, num_features))
                 graph_dict[sample_set][sample]['graph'].dataset[0].x = new_node_feats
                 
-            # # change edge index and edge weights for Data object
-            # graph_dict[sample_set][sample]['graph'].dataset[0].edge_index = edge_index
-            # graph_dict[sample_set][sample]['graph'].dataset[0].edge_attr = edge_attr
+            # change edge index and edge weights for Data object
+            graph_dict[sample_set][sample]['graph'].dataset[0].edge_index = edge_index
+            graph_dict[sample_set][sample]['graph'].dataset[0].edge_attr = edge_attr
     

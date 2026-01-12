@@ -303,7 +303,6 @@ def pnca_GCN_vary_graph(
                         edge_weight_func=edge_weight_func,
                         normalise_ews=normalise_ews,
                         lambda_param=lambda_param,
-                        recreate_graph=recreate_graph,
                         no_node_mpfs=no_node_mpfs,
                         no_node_chem_feats=no_node_chem_feats,
                         rand_node_feats=rand_node_feats,
