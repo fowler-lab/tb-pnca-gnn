@@ -6,7 +6,7 @@ metric:
 parameters:
   learning_rate:
     min: 1e-6
-    max: 1e-5
+    max: 5e-4
   batch_size:
     values: [128, 256, 512]
   hidden_channels:

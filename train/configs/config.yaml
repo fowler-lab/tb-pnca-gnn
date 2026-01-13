@@ -1,8 +1,8 @@
 # Config for train.py
 
-project: pnca-codon-split-sweep
-run_name: codon-split-sweep
-dataset_path: ../notebooks/datasets/codon_graph_dict.pkl
+project: pnca-clustered-split-sweep
+run_name: clustered-split-sweep
+dataset_path: ../notebooks/datasets/clustered_2_graph_dict.pkl
 
 seed: 42
 use_wandb: true
@@ -18,7 +18,7 @@ edge_weight_func: "exp"
 edge_weight_lambda: 2
 learning_rate: 4e-5
 weight_decay: 5e-6
-epochs: 2000
+epochs: 3000
 # epochs: 50
 self_loops: false
 lr_scheduling: false
