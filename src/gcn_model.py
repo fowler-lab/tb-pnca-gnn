@@ -146,10 +146,10 @@ class GCNTrainer:
             print(f'Early stopping enabled. Patience: {patience}. Min Delta: {min_delta}.')
             early_stopping = EarlyStopping(patience=patience, min_delta=min_delta)
             
-        if self.scheduler is not None:
-            print(f'Learning rate scheduler enabled. Patience: {self.scheduler.patience}. Factor: {self.scheduler.factor}.')
-            prev_lr = self.optimizer.param_groups[0]['lr']
-            print(f'Initial learning rate: {prev_lr}')
+        # if self.scheduler is not None:
+        #     print(f'Learning rate scheduler enabled. Patience: {self.scheduler.patience}. Factor: {self.scheduler.factor}.')
+        #     prev_lr = self.optimizer.param_groups[0]['lr']
+        #     print(f'Initial learning rate: {prev_lr}')
     
         for epoch in range(0, epochs):
             
@@ -205,11 +205,12 @@ class GCNTrainer:
                 print(f'Epoch: {epoch:03d}, Train Acc: {tracc:.4f}, Test Acc: {teacc:.4f}, Train Loss: {trlss:.4f}, Test Loss: {telss:.4f}')
 
             if self.scheduler is not None:
-                self.scheduler.step(telss)
-                current_lr = self.optimizer.param_groups[0]['lr']
-                if current_lr != prev_lr:
-                    print(f'Epoch: {epoch:03d}, Learning rate changed from {prev_lr} to {current_lr}')
-                    prev_lr = current_lr
+                # self.scheduler.step(telss)
+                self.scheduler.step()
+                # current_lr = self.optimizer.param_groups[0]['lr']
+                # if current_lr != prev_lr:
+                #     print(f'Epoch: {epoch:03d}, Learning rate changed from {prev_lr} to {current_lr}')
+                #     prev_lr = current_lr
                 
             if abort_on_thresh:
                 if teacc > abort_on_thresh:
@@ -237,8 +238,8 @@ def load(dataset,
          batch_size,
          shuffle_dataset=True, 
          train_split:int = 0.7,
-         test_split:int = 0.15,
-         val_split:int = 0.15
+         test_split:int = 0.3,
+         val_split:int = 0
          ):
     
     dataset_copy = dataset.copy()
@@ -247,9 +248,6 @@ def load(dataset,
     
     train_cutoff = int(len(dataset) * train_split)
     test_cutoff = int(len(dataset) * (train_split + test_split))
-    
-    # todo: will need to edit to keep a conistent val_set, one which isn't subject to random shuffle
-    # need this to keep consistent with model selection
     
     if shuffle_dataset:
         random.shuffle(dataset_copy)

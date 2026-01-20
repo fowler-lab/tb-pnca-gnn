@@ -60,9 +60,12 @@ def _run_pnca_gcn_training(
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=wd)
     
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer=optimizer, factor=0.5, patience=10, verbose=True
-    ) if lr_scheduling else None
+    # over every 400 steps, smoothly reduce LR by factor of 0.5
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=400, gamma=0.5, verbose=True) if lr_scheduling else None
+    
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    #     optimizer=optimizer, factor=0.5, patience=10, verbose=True
+    # ) if lr_scheduling else None
 
     criterion = torch.nn.BCEWithLogitsLoss() if output_channels == 1 else torch.nn.CrossEntropyLoss()
 
