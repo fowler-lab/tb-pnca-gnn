@@ -1,0 +1,31 @@
+# sweep config for wandb sweep
+method: random
+metric:
+  name: Test F1
+  goal: maximize
+parameters:
+  learning_rate:
+    min: 1e-6
+    max: 5e-4
+  batch_size:
+    values: [128, 256, 512]
+  hidden_channels:
+    values: [128, 256, 512]
+  dropout:
+    min: 0.3
+    max: 0.7
+  edge_weight_lambda:
+    min: 0.5
+    max: 4.0
+  cutoff_distance:
+    values: [6, 8, 10, 12, 14]
+  edge_weight_func:
+    value: "exp"
+  weight_decay:
+    min: 1e-6
+    max: 1e-4
+  early_stop:
+    value: true
+  recreate_graph:
+    value: true
+program: src/train.py
