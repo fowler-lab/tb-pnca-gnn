@@ -1,18 +1,11 @@
 # tb-pnca-gnn
 
-A graph convolutional neural network (GCN) for predicting Pyrazinamide (PZA) resistance in *Mycobacterium tuberculosis* based on mutations in the pncA gene.
-
-## Overview
-
-This project implements a Graph Convolutional Network to predict antimicrobial resistance by modeling protein structures as graphs. The model uses protein structure graphs and node features including amino acid properties and structural features.
-
-# tb-pnca-gnn
-
 A Graph Convolutional Network (GCN) for predicting Pyrazinamide (PZA) resistance in *Mycobacterium tuberculosis* from mutations in the *pncA* gene.
 
 ## Overview
 
-Pyrazinamide is a critical first-line antibiotic for tuberculosis treatment, but resistance prediction remains challenging due to the diverse range of mutations in the *pncA* gene. This project implements a GCN that models the PncA protein structure as a graph, combining structural information with amino acid features to predict resistance phenotypes.
+Pyrazinamide is a critical first-line antibiotic for tuberculosis treatment, but resistance prediction remains challenging due to the diverse range of mutations in the *pncA* gene. 
+This project implements a GCN that models the PncA protein structure as a graph, combining structural information with amino acid features to predict resistance phenotypes.
 
 The model was trained on phenotypically characterised isolates and achieves an **F1 score of 0.816** on the held-out test set.
 
