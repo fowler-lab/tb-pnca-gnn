@@ -115,6 +115,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 Dylan Dissanayake - [dylan.dissanayake@msdtc.ox.ac.uk](mailto:dylan.dissanayake@msdtc.ox.ac.uk)
 
-Philip W Fowelr - [philip.fowler@ndm.ox.ac.uk](mailto:philip.fowler@ndm.ox.ac.uk)
+Philip W Fowler - [philip.fowler@ndm.ox.ac.uk](mailto:philip.fowler@ndm.ox.ac.uk)
 
 Fowler Lab, University of Oxford
