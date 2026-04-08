@@ -3,8 +3,6 @@ notebooks/datasets
 dd_pnca/saved_models/
 train/wandb/
 
-saved_models/
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
