@@ -4,6 +4,7 @@ import torch
 from torch_geometric.data import Data
 from sklearn.preprocessing import MinMaxScaler
 import src.gcn_model as gcn_model
+import src.toy_egnn as toy_egnn
 from src.protein_graph import pncaGraph
 import src.model_helpers as model_helpers
 from typing import Union, List
@@ -142,14 +143,14 @@ def pnca_simpleGCN(
         cutoff_distance (float): Distance cutoff in Angstroms for edges in the graph.
         edge_weight_func (str): Edge weight function.
         batch_size (int): Batch size for training.
-        num_node_features (int): Number of node features / size of input channel.
+        num_node_features (int): Number of scalar node features; sets irreps_in to f"{num_node_features}x0e".
         hidden_channels (int): Number of hidden channels.
         learning_rate (float): Learning rate.
         wd (float): Weight decay.
         epochs (int): Number of epochs in training.
         sequences (Union[pd.DataFrame, dict], optional): If train/test split already done, provide dict in form of {'train': train_df, 'test': test_df}. Can be None if dataset is provided. Defaults to None.
         dataset (List[torch_geometric.data.Data], optional): Full dataset. If provided, sequences will be ignored. Defaults to None.
-        output_channels (int, optional): Number of output channels. Defaults to 2.
+        output_channels (int, optional): Ignored; EGNN output is fixed to 2.
         normalise_ews (bool, optional): Whether to normalise edge weights. Defaults to True.
         lambda_param (float, optional): Lambda parameter for exponential edge weighting. Defaults to None.
         dropout (float, optional): Dropout rate. Defaults to 0.5.
@@ -394,3 +395,225 @@ def pnca_GCN_vary_graph(
         save_path=save_path,
         wandb_params=wandb_params,
     )
+
+
+def pnca_EGNN_vary_graph(
+    self_loops: bool,
+    cutoff_distance: float,
+    edge_weight_func: str,
+    batch_size: int,
+    num_node_features: int,
+    hidden_channels: int,
+    learning_rate: float,
+    wd: float,
+    epochs: int,
+    graph_dict: dict,
+    output_channels: int = 2,
+    normalise_ews: bool = True,
+    lambda_param: float = None,
+    dropout: float = 0.5,
+    lr_scheduling: bool = False,
+    early_stop: bool = True,
+    recreate_graph: bool = False,
+    shuffle_edges: bool = False,
+    no_node_mpfs: bool = False,
+    no_node_chem_feats: bool = False,
+    rand_node_feats: bool = False,
+    save_path: str = None,
+    irreps_sh: str = "0e+1o",
+    num_basis: int = 10,
+    max_radius: float = None,
+    wandb_params: dict = {
+        "use_wandb": False,
+        "wandb_project": None,
+        "wandb_name": None,
+        "sweep": False,
+    },
+):
+    """
+    Runs PncA EGNN model pipeline.
+    Input in the form of nested dictionary with keys 'train' and 'test', then a key for each sample with a pncaGraph object.
+
+    Args:
+        self_loops (bool): Include self loops in graph.
+        cutoff_distance (float): Distance cutoff in Angstroms for edges in the graph.
+        edge_weight_func (str): Edge weight function.
+        batch_size (int): Batch size for training.
+        num_node_features (int): Number of node features / size of input channel.
+        hidden_channels (int): Number of hidden channels.
+        learning_rate (float): Learning rate.
+        wd (float): Weight decay.
+        epochs (int): Number of epochs in training.
+        graph_dict (dict): Provide dict in form of:
+            {
+                'train': {
+                    'graph': <src.protein_graph.pncaGraph object>,
+                    'metadata': ...,
+                    ...
+                },
+                'test': {
+                    'graph': <src.protein_graph.pncaGraph object>,
+                    'metadata': ...,
+                    ...
+                }
+            }
+        output_channels (int, optional): Number of output channels. Defaults to 2.
+        normalise_ews (bool, optional): Normalise edge weights. Defaults to True.
+        lambda_param (float, optional): Lambda parameter for exponential edge weighting.
+            Defaults to None.
+        dropout (float, optional): Dropout rate. Defaults to 0.5.
+        lr_scheduling (bool, optional): Use learning rate scheduling. Defaults to False.
+        early_stop (bool, optional): Use early stopping in model training. Defaults to True.
+        recreate_graph (bool, optional): Whether to redefine edge index and edge weights in
+            the graph. To be used if desired graph structure (e.g. cutoff distance) is
+            different from the passed in graph_dict, or if performing a sweep where cutoff
+            distance is varied. Defaults to False.
+        shuffle_edges (bool, optional): Whether to shuffle edges in the graph. Use as part
+            of control test to evaluate effect of graph structure. Defaults to False.
+        no_node_mpfs (bool, optional): Whether to remove meta-predictor features for
+            control test. Defaults to False.
+        no_node_chem_feats (bool, optional): Whether to remove chemical features (from
+            SBMLCore) for control test. Defaults to False.
+        rand_node_feats (bool, optional): Whether to use random node features for control
+            test. Defaults to False.
+        save_path (str, optional): Path to save the trained model. Defaults to None.
+        irreps_sh (str, optional): Spherical harmonics irreps for edge features.
+        num_basis (int, optional): Number of radial basis functions.
+        max_radius (float, optional): Radius cutoff for EGNN edges; defaults to cutoff_distance.
+        wandb_params (dict, optional): Dictionary to provide parameters for WandB run.
+            Defaults to {'use_wandb': False, 'wandb_project': None, 'wandb_name': None,
+            'sweep': False}.
+
+    Returns:
+        model (torch.nn.Module): Trained EGNN model
+    """
+
+    if any(
+        [
+            shuffle_edges,
+            no_node_mpfs,
+            no_node_chem_feats,
+            rand_node_feats,
+            recreate_graph,
+        ]
+    ):
+        # redefine graph_dict
+        model_helpers.redefine_graph(
+            graph_dict,
+            cutoff_distance=cutoff_distance,
+            edge_weight_func=edge_weight_func,
+            normalise_ews=normalise_ews,
+            lambda_param=lambda_param,
+            no_node_mpfs=no_node_mpfs,
+            no_node_chem_feats=no_node_chem_feats,
+            rand_node_feats=rand_node_feats,
+            shuffle_edges=shuffle_edges,
+        )
+
+    train_split, test_split = 0.7, 0.3
+    # create dataset list
+    full_dataset = []
+    for sample in graph_dict["train"]:
+        full_dataset.append(graph_dict["train"][sample]["graph"].dataset[0])
+    for sample in graph_dict["test"]:
+        full_dataset.append(graph_dict["test"][sample]["graph"].dataset[0])
+
+    if wandb_params.get("use_wandb", False) or wandb_params.get("sweep", False):
+        wandb_params["config"] = {
+            "num_node_features": num_node_features,
+            "hidden_channels": hidden_channels,
+            "learning_rate": learning_rate,
+            "weight_decay": wd,
+            "cutoff_distance": cutoff_distance,
+            "self_loops": self_loops,
+            "lambda_param": lambda_param,
+            "dropout": dropout,
+            "n_samples": wandb_params["n_samples"],
+            "batch_size": batch_size,
+            "epochs": epochs,
+        }
+
+    if max_radius is None:
+        max_radius = cutoff_distance
+
+    # Create DataLoaders
+    train_loader, test_loader, val_loader, dataset_dict = toy_egnn.load(
+        dataset=full_dataset,
+        batch_size=batch_size,
+        shuffle_dataset=False,
+        train_split=train_split,
+        test_split=test_split,
+        val_split=0,
+    )
+
+    if torch.cuda.is_available():
+        print("Using CUDA")
+        model_device = "cuda"
+    else:
+        print("Using CPU")
+        model_device = "cpu"
+
+    # irreps_in is always scalar node features derived from num_node_features.
+    irreps_in = f"{num_node_features}x0e"
+    num_scalar = hidden_channels // 2
+    num_vector = hidden_channels - num_scalar
+    irreps_parts = []
+    if num_scalar > 0:
+        irreps_parts.append(f"{num_scalar}x0e")
+    if num_vector > 0:
+        irreps_parts.append(f"{num_vector}x1e")
+    irreps_mid = " + ".join(irreps_parts)
+    irreps_out = irreps_mid
+
+    model = toy_egnn.EGNNConvToy(
+        irreps_in=irreps_in,
+        irreps_mid=irreps_mid,
+        irreps_out=irreps_out,
+        irreps_sh=irreps_sh,
+        num_basis=num_basis,
+        max_radius=max_radius,
+    ).to(model_device)
+
+    model.train_loader = train_loader
+    model.test_loader = test_loader
+    model.dataset_dict = dataset_dict
+
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=wd)
+
+    scheduler = (
+        torch.optim.lr_scheduler.StepLR(
+            optimizer, step_size=400, gamma=0.5, verbose=True
+        )
+        if lr_scheduling
+        else None
+    )
+
+    output_dim = 2
+    criterion = torch.nn.CrossEntropyLoss()
+
+    egnn_trainer = toy_egnn.EGNNTrainer(
+        model=model,
+        loss_func=criterion,
+        optimizer=optimizer,
+        train_loader=train_loader,
+        test_loader=test_loader,
+        scheduler=scheduler,
+        output_dim=output_dim,
+    )
+
+    if wandb_params["use_wandb"]:
+        wandb.init(
+            project=wandb_params["wandb_project"],
+            name=wandb_params["wandb_name"],
+            config=wandb_params.get("config", {}),
+        )
+
+    egnn_trainer.run(
+        epochs=epochs,
+        use_wandb=wandb_params.get("use_wandb", False)
+        or wandb_params.get("sweep", False),
+        path=save_path,
+        early_stop={"patience": 50, "min_delta": 0} if early_stop else False,
+    )
+
+    return model

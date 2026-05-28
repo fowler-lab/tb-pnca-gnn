@@ -38,6 +38,9 @@ class ProteinGraph:
             self.nodes.center_of_mass(compound="residues")
         )
         self.edge_dists = self._gen_edge_dists(self.edge_index, self.d_array)
+        self.node_positions = torch.tensor(
+            self.nodes.center_of_mass(compound="residues"), dtype=torch.float
+        )
 
         assert len(self.nodes.residues) > max(
             torch.cat([self.edge_index[0], self.edge_index[1]])
@@ -258,6 +261,7 @@ class ProteinGraph:
                 x=x,
                 edge_index=self.edge_index,
                 edge_attr=ews,
+                pos=self.node_positions,
                 y=y,
             )
 
