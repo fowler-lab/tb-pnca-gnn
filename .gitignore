@@ -1,5 +1,7 @@
 notebooks/wandb/
 notebooks/datasets
+dd_pnca/saved_models/
+train/wandb/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

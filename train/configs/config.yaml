@@ -1,0 +1,32 @@
+# Config for train.py
+
+project: pnca-final-train-splits
+run_name: codon-split-1
+dataset_path: ../notebooks/datasets/codon_graph_dict.pkl
+
+seed: 42
+use_wandb: true
+sweep: false
+save_path: "../saved_models/${project}/${run_name}"
+
+cutoff_distance: 12
+num_node_features: 18
+batch_size: 256
+# hidden_channels: 256
+hidden_channels: 128
+# dropout: 0.6
+dropout: 0.5
+edge_weight_func: "exp"
+# edge_weight_lambda: 2
+edge_weight_lambda: 3.4
+# learning_rate: 4e-5
+learning_rate: 2e-4
+# weight_decay: 5e-6
+weight_decay: 6e-5
+epochs: 1000
+# epochs: 50
+self_loops: false
+lr_scheduling: true
+normalise_ews: true
+early_stop: false
+recreate_graph: false
