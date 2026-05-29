@@ -302,7 +302,7 @@ class EGNNTrainer:
                         f"{path}/F1={best_test_f1:.3f}_epoch={epoch}_dict.pth",
                     )
 
-            if epoch % 10 == 0:
+            if epoch % 1 == 0:
                 print(
                     f"Epoch: {epoch:03d}, Train Acc: {tracc:.4f}, Test Acc: {teacc:.4f}, Train Loss: {trlss:.4f}, Test Loss: {telss:.4f}"
                 )
