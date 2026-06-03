@@ -562,6 +562,7 @@ def pnca_EGNN_vary_graph(
         irreps_parts.append(f"{num_scalar}x0e")
     if num_vector > 0:
         irreps_parts.append(f"{num_vector}x1e")
+        irreps_parts.append(f"{num_vector}x2e")
     irreps_mid = " + ".join(irreps_parts)
     irreps_out = irreps_mid
 
